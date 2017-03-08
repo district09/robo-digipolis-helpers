@@ -1,5 +1,5 @@
 {
-    "name": "digipolisgent/robo-digipolis-helper",
+    "name": "digipolisgent/robo-digipolis-helpers",
     "description": "Helper to create a basic deploy flow.",
     "type": "robo-tasks",
     "minimum-stability": "dev",
