@@ -27,6 +27,13 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     protected $time;
 
     /**
+     * File backup subdirs.
+     *
+     * @var type
+     */
+    protected $fileBackupSubDirs = [];
+
+    /**
      * Create a RoboFileBase instance.
      */
     public function __construct()
@@ -51,16 +58,17 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         array $arguments,
         $opts
     ) {
-        $archive = $this->time . '.tar.gz';
-        $build = $this->buildTask($archive);
+        $opts += ['force-install' => false];
         $privateKeyFile = array_pop($arguments);
         $user = array_pop($arguments);
         $servers = $arguments;
         $worker = is_null($opts['worker']) ? reset($servers) : $opts['worker'];
         $remote = $this->getRemoteSettings($servers, $user, $privateKeyFile, $opts['app']);
-        $releaseDir = $remote['releasesdir'] . '/' . $this->time;
+        $releaseDir = $remote['releasesdir'] . '/' . $remote['time'];
         $auth = new KeyFile($user, $privateKeyFile);
         $currentProjectRoot = $remote['currentdir'] . '/..';
+        $archive = $remote['time'] . '.tar.gz';
+        $build = $this->buildTask($archive);
 
         $collection = $this->collectionBuilder();
         $collection->addTask($build);
@@ -99,7 +107,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 $collection->exec('ln -s -T -f ' . str_replace(':', ' ', $link));
             }
         }
-        $collection->addTask($this->initRemoteTask($worker, $auth, $remote));
+        $collection->addTask($this->initRemoteTask($worker, $auth, $remote, $opts, $opts['force-install']));
         if (isset($remote['opcache'])) {
             $clearOpcache = 'vendor/bin/robo digipolis:clear-op-cache ' . $remote['opcache']['env'];
             if ( isset($remote['opcache']['host'])) {
@@ -237,22 +245,24 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      *   The ssh authentication to connect to the server.
      * @param array $remote
      *   The remote settings for this server.
+     * @param array $extra
+     *   Extra parameters to pass to site install.
      * @param bool $force
      *   Whether or not to force the install even when the site is present.
      *
      * @return \Robo\Contract\TaskInterface
      *   The init remote task.
      */
-    protected function initRemoteTask($worker, AbstractAuth $auth, $remote, $force = false) {
+    protected function initRemoteTask($worker, AbstractAuth $auth, $remote, $extra = [], $force = false) {
         $collection = $this->collectionBuilder();
         if (!$this->isSiteInstalled($worker, $auth, $remote) || $force) {
             $this->say($force ? 'Forcing site install.' : 'Site status failed.');
             $this->say('Triggering install script.');
 
-            $collection->addTask($this->installTask($worker, $auth, $remote, $force));
+            $collection->addTask($this->installTask($worker, $auth, $remote, $extra, $force));
             return $collection;
         }
-        $collection->addTask($this->updateTask($worker, $auth, $remote));
+        $collection->addTask($this->updateTask($worker, $auth, $remote, $extra));
         return $collection;
     }
 
@@ -290,7 +300,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return \Robo\Contract\TaskInterface
      *   The install task.
      */
-    abstract protected function installTask($worker, AbstractAuth $auth, $remote, $force = false);
+    abstract protected function installTask($worker, AbstractAuth $auth, $remote, $extra = [], $force = false);
 
     /**
      * Sync the database and files between two sites.
@@ -383,7 +393,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function backupTask($worker, AbstractAuth $auth, $remote)
     {
-        $backupDir = $remote['backupsdir'] . '/' . $this->time;
+        $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
         $currentProjectRoot = $remote['currentdir'] . '/..';
 
         $dbBackupFile = $this->backupFileName('.sql');
@@ -392,7 +402,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         $filesBackupFile = $this->backupFileName('.tar.gz');
         $filesBackup = 'tar -pczhf ' . $backupDir . '/'  . $filesBackupFile
-            . ' -C ' . $remote['filesdir'] . ' app framework logs';
+            . ' -C ' . $remote['filesdir'] . ' ' . implode(' ', $this->fileBackupSubDirs);
 
         $collection = $this->collectionBuilder();
         $collection
@@ -420,10 +430,10 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     protected function restoreBackupTask($worker, AbstractAuth $auth, $remote) {
 
         $currentProjectRoot = $remote['currentdir'] . '/..';
-        $backupDir = $remote['backupsdir'] . '/' . $this->time;
+        $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
 
-        $filesBackupFile =  $this->backupFileName('.tar.gz', $remote['timestamp']);
-        $dbBackupFile =  $this->backupFileName('.sql.gz', $remote['timestamp']);
+        $filesBackupFile =  $this->backupFileName('.tar.gz', $remote['time']);
+        $dbBackupFile =  $this->backupFileName('.sql.gz', $remote['time']);
 
         $dbRestore = 'vendor/bin/robo digipolis:database-restore '
               . '--source=' . $backupDir . '/' . $dbBackupFile;
@@ -481,9 +491,9 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      *   The download backup task.
      */
     protected function downloadBackupTask($worker, AbstractAuth $auth, $remote) {
-        $backupDir = $remote['backupsdir'] . '/' . $remote['timestamp'];
-        $dbBackupFile = $this->backupFileName('.sql.gz', $remote['timestamp']);
-        $filesBackupFile = $this->backupFileName('.tar.gz', $remote['timestamp']);
+        $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
+        $dbBackupFile = $this->backupFileName('.sql.gz', $remote['time']);
+        $filesBackupFile = $this->backupFileName('.tar.gz', $remote['time']);
 
         $collection = $this->collectionBuilder();
         $collection
@@ -507,9 +517,9 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      *   The upload backup task.
      */
     protected function uploadBackupTask($worker, AbstractAuth $auth, $remote) {
-        $backupDir = $remote['backupsdir'] . '/' . $remote['timestamp'];
-        $dbBackupFile = $this->backupFileName('.sql.gz', $remote['timestamp']);
-        $filesBackupFile = $this->backupFileName('.tar.gz', $remote['timestamp']);
+        $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
+        $dbBackupFile = $this->backupFileName('.sql.gz', $remote['time']);
+        $filesBackupFile = $this->backupFileName('.tar.gz', $remote['time']);
 
         $collection = $this->collectionBuilder();
         $collection
