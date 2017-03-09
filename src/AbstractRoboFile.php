@@ -533,7 +533,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $collection
             ->taskSsh($worker, $auth)
                 ->exec('mkdir -p ' . $backupDir)
-            ->taskScp($host, $auth)
+            ->taskScp($worker, $auth)
                 ->put($backupDir . '/' . $dbBackupFile, $dbBackupFile)
                 ->put($backupDir . '/' . $filesBackupFile, $filesBackupFile);
         return $collection;
