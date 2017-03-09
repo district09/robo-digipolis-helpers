@@ -83,16 +83,6 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                     $remote
                 )
             );
-            // Switch the current symlink to the previous release.
-            $collection->rollback(
-                $this->taskSsh($worker, $auth)
-                    ->remoteDirectory($currentProjectRoot, true)
-                    ->exec(
-                        'vendor/bin/robo digipolis:switch-previous '
-                        . $remote['releasesdir']
-                        . ' ' . $remote['currentdir']
-                    )
-            );
         }
         foreach ($servers as $server) {
             $collection
@@ -103,8 +93,25 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             if ($preSymlink) {
                 $collection->addTask($preSymlink);
             }
+            // Switch the current symlink to the previous release.
+            $collection->rollback(
+                $this->taskSsh($server, $auth)
+                    ->remoteDirectory($currentProjectRoot, true)
+                    ->exec(
+                        'vendor/bin/robo digipolis:switch-previous '
+                        . $remote['releasesdir']
+                        . ' ' . $remote['currentdir']
+                    )
+            );
+            // Remove this release.
+            $collection->rollback(
+                $this->taskSsh($server, $auth)
+                    ->remoteDirectory($currentProjectRoot, true)
+                    ->exec('rm -rf ' . $remote['releasesdir'])
+            );
             foreach ($remote['symlinks'] as $link) {
-                $collection->exec('ln -s -T -f ' . str_replace(':', ' ', $link));
+                $collection->taskSsh($server, $auth)
+                    ->exec('ln -s -T -f ' . str_replace(':', ' ', $link));
             }
         }
         $collection->addTask($this->initRemoteTask($worker, $auth, $remote, $opts, $opts['force-install']));
@@ -186,18 +193,19 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         );
         // Last element is the current release.
         array_pop($releases);
-        // Normalize the paths.
-        $currentDir = realpath($currentSymlink);
-        $releasesDir = realpath($releasesDir);
-        // Get the right folder within the release dir to symlink.
-        $relativeRootDir = substr($currentDir, strlen($releasesDir . '/'));
-        $parts = explode('/', $relativeRootDir);
-        array_shift($parts);
-        $relativeWebDir = implode('/', $parts);
-        $previous = end($releases)->getRealPath() . '/' . $relativeWebDir;
-
-        return $this->taskExec('ln -s -T -f ' . $previous . ' ' . $currentSymlink)
-            ->run();
+        if ($releases) {
+            // Normalize the paths.
+            $currentDir = realpath($currentSymlink);
+            $releasesDir = realpath($releasesDir);
+            // Get the right folder within the release dir to symlink.
+            $relativeRootDir = substr($currentDir, strlen($releasesDir . '/'));
+            $parts = explode('/', $relativeRootDir);
+            array_shift($parts);
+            $relativeWebDir = implode('/', $parts);
+            $previous = end($releases)->getRealPath() . '/' . $relativeWebDir;
+            return $this->taskExec('ln -s -T -f ' . $previous . ' ' . $currentSymlink)
+                ->run();
+        }
     }
 
     /**
