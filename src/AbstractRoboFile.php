@@ -284,10 +284,10 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function preSymlinkTask($worker, AbstractAuth $auth, $remote)
     {
-        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $projectRoot = $remote['webdir'] . '/..';
         $collection = $this->collectionBuilder();
         $collection->taskSsh($worker, $auth)
-            ->remoteDirectory($currentProjectRoot, true)
+            ->remoteDirectory($projectRoot, true)
             ->timeout(60);
         foreach ($remote['symlinks'] as $symlink) {
             list($target, $link) = explode(':', $symlink);
