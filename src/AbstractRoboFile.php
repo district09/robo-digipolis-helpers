@@ -107,7 +107,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $collection->rollback(
                 $this->taskSsh($server, $auth)
                     ->remoteDirectory($currentProjectRoot, true)
-                    ->exec('rm -rf ' . $remote['releasesdir'])
+                    ->exec('rm -rf ' . $releaseDir)
             );
             foreach ($remote['symlinks'] as $link) {
                 $collection->taskSsh($server, $auth)
