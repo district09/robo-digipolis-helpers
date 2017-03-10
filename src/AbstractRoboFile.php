@@ -229,7 +229,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $task = $this->taskFilesystemStack();
         $task->mkdir($destination);
 
-        $directoryIterator = new \RecursiveDirectoryIterator($this->dir, \RecursiveDirectoryIterator::SKIP_DOTS);
+        $directoryIterator = new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS);
         $recursiveIterator = new \RecursiveIteratorIterator($directoryIterator, \RecursiveIteratorIterator::SELF_FIRST);
         foreach ($recursiveIterator as $item) {
             $destinationFile = $destination . DIRECTORY_SEPARATOR . $recursiveIterator->getSubPathName();
