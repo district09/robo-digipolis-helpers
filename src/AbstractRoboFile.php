@@ -159,8 +159,9 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return bool|\Robo\Contract\TaskInterface
      *   The clear cache task or false if no clear cache task exists.
      */
-    protected function clearCacheTask($worker, $auth, $remote) {
-      return false;
+    protected function clearCacheTask($worker, $auth, $remote)
+    {
+        return false;
     }
 
     /**
@@ -253,7 +254,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return \Robo\Contract\TaskInterface
      *   The init remote task.
      */
-    protected function initRemoteTask($worker, AbstractAuth $auth, $remote, $extra = [], $force = false) {
+    protected function initRemoteTask($worker, AbstractAuth $auth, $remote, $extra = [], $force = false)
+    {
         $collection = $this->collectionBuilder();
         if (!$this->isSiteInstalled($worker, $auth, $remote) || $force) {
             $this->say($force ? 'Forcing site install.' : 'Site status failed.');
@@ -337,9 +339,20 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $sourceApp = 'default',
         $destinationApp = 'default'
     ) {
-        $sourceRemote = $this->getRemoteSettings($sourceHost, $sourceUser, $sourceKeyFile, $sourceApp);
+        $sourceRemote = $this->getRemoteSettings(
+            $sourceHost,
+            $sourceUser,
+            $sourceKeyFile,
+            $sourceApp
+        );
         $sourceAuth = new KeyFile($sourceUser, $sourceKeyFile);
-        $destinationRemote = $this->getRemoteSettings($destinationHost, $destinationUser, $destinationKeyFile, $destinationApp);
+
+        $destinationRemote = $this->getRemoteSettings(
+            $destinationHost,
+            $destinationUser,
+            $destinationKeyFile,
+            $destinationApp
+        );
         $destinationAuth = new KeyFile($destinationUser, $destinationKeyFile);
 
         $collection = $this->collectionBuilder();
@@ -427,7 +440,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return \Robo\Contract\TaskInterface
      *   The restore backup task.
      */
-    protected function restoreBackupTask($worker, AbstractAuth $auth, $remote) {
+    protected function restoreBackupTask($worker, AbstractAuth $auth, $remote)
+    {
 
         $currentProjectRoot = $remote['currentdir'] . '/..';
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
@@ -490,7 +504,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return \Robo\Contract\TaskInterface
      *   The download backup task.
      */
-    protected function downloadBackupTask($worker, AbstractAuth $auth, $remote) {
+    protected function downloadBackupTask($worker, AbstractAuth $auth, $remote)
+    {
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
         $dbBackupFile = $this->backupFileName('.sql.gz', $remote['time']);
         $filesBackupFile = $this->backupFileName('.tar.gz', $remote['time']);
@@ -516,7 +531,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return \Robo\Contract\TaskInterface
      *   The upload backup task.
      */
-    protected function uploadBackupTask($worker, AbstractAuth $auth, $remote) {
+    protected function uploadBackupTask($worker, AbstractAuth $auth, $remote)
+    {
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
         $dbBackupFile = $this->backupFileName('.sql.gz', $remote['time']);
         $filesBackupFile = $this->backupFileName('.tar.gz', $remote['time']);
