@@ -619,7 +619,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $releaseDir = is_null($releaseDirname)
             ? $remote['releasesdir'] . '/' . $remote['time']
             : $releaseDirname;
-        $this->taskSsh($worker, $auth)
+        return $this->taskSsh($worker, $auth)
             ->remoteDirectory($currentProjectRoot, true)
             ->exec('rm -rf ' . $releaseDir);
     }
