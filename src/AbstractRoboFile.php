@@ -289,14 +289,15 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             ->remoteDirectory($currentProjectRoot, true)
             ->timeout(60);
         foreach ($remote['symlinks'] as $symlink) {
-            list($link, $target) = explode(':', $symlink);
+            list($target, $link) = explode(':', $symlink);
+            if ($link === $remote['currentdir']) {
+                continue;
+            }
             // If the link we're going to create is an existing directory,
             // mirror that directory on the symlink target and then delete it
             // before creating the symlink
             $collection->exec('vendor/bin/robo digipolis:mirror-dir ' . $link . ' ' . $target);
-            if ($target !== $remote['currentdir']) {
-                $collection->exec('rm -rf ' . $target);
-            }
+            $collection->exec('rm -rf ' . $link);
         }
         return $collection;
     }
