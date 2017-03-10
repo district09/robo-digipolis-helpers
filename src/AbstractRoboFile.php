@@ -202,6 +202,55 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     }
 
     /**
+     * @return \Robo\Task\Filesystem\FilesystemStack
+     */
+    protected function taskFilesystemStack()
+    {
+        return $this->task(FilesystemStack::class);
+    }
+
+    /**
+     * Mirror a directory.
+     *
+     * @param string $dir
+     *   Path of the directory to mirror.
+     * @param string $destination
+     *   Path of the directory where $dir should be mirrored.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The mirror dir task.
+     */
+    public function digipolisMirrorDir($dir, $destination)
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $task = $this->taskFilesystemStack();
+        $task->mkdir($destination);
+
+        $directoryIterator = new \RecursiveDirectoryIterator($this->dir, \RecursiveDirectoryIterator::SKIP_DOTS);
+        $recursiveIterator = new \RecursiveIteratorIterator($directoryIterator, \RecursiveIteratorIterator::SELF_FIRST);
+        foreach ($recursiveIterator as $item) {
+            $destinationFile = $destination . DIRECTORY_SEPARATOR . $recursiveIterator->getSubPathName();
+            if (file_exists($destinationFile)) {
+                continue;
+            }
+            if (is_link($item)) {
+                if ($item->getRealPath() !== false) {
+                    $task->symlink($item->getLinkTarget(), $destinationFile);
+                }
+                continue;
+            }
+            if ($item->isDir()) {
+                $task->mkdir($destinationFile);
+                continue;
+            }
+            $task->copy($item, $destinationFile);
+        }
+        return $task;
+    }
+
+    /**
      * Build a site and package it.
      *
      * @param string $archivename
@@ -234,7 +283,20 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function preSymlinkTask($worker, AbstractAuth $auth, $remote)
     {
-        return false;
+        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $collection = $this->collectionBuilder();
+        $collection->taskSsh($worker, $auth)
+            ->remoteDirectory($currentProjectRoot, true)
+            ->timeout(60);
+        foreach ($remote['symlinks'] as $symlink) {
+            list($link, $target) = explode(':', $symlink);
+            // If the link we're going to create is an existing directory,
+            // mirror that directory on the symlink target and then delete it
+            // before creating the symlink
+            $collection->exec('vendor/bin/robo digipolis:mirror-dir ' . $link . ' ' . $target);
+            $collection->exec('rm -rf ' . $link);
+        }
+        return $collection;
     }
 
     /**
@@ -415,7 +477,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         $filesBackupFile = $this->backupFileName('.tar.gz');
         $filesBackup = 'tar -pczhf ' . $backupDir . '/'  . $filesBackupFile
-            . ' -C ' . $remote['filesdir'] . ' ' . implode(' ', $this->fileBackupSubDirs);
+            . ' -C ' . $remote['filesdir'] . ' '
+            . ($this->fileBackupSubDirs ? implode(' ', $this->fileBackupSubDirs) : '*');
 
         $collection = $this->collectionBuilder();
         $collection
@@ -488,7 +551,18 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function preRestoreBackupTask($worker, AbstractAuth $auth, $remote)
     {
-        return false;
+        $removeFiles = 'rm -rf';
+        if (!$this->fileBackupSubDirs) {
+            $removeFiles .+ ' ./* ./.??*';
+        }
+        foreach ($this->fileBackupSubDirs as $subdir) {
+            $removeFiles .= ' ' . $subdir . '/* ' . $subdir . '/.??*';
+        }
+        $collection = $this->collectionBuilder();
+        $collection->taskSsh($worker, $auth)
+            ->remoteDirectory($remote['filesdir'], true)
+            ->exec($removeFiles);
+        return $collection;
     }
 
     /**
