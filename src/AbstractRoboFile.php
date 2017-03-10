@@ -6,6 +6,7 @@ use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\KeyFile;
 use DigipolisGent\Robo\Task\General\Common\DigipolisPropertiesAwareInterface;
 use Robo\Contract\ConfigAwareInterface;
+use Robo\Task\Filesystem\FilesystemStack;
 use Symfony\Component\Finder\Finder;
 
 abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisPropertiesAwareInterface, ConfigAwareInterface
@@ -202,7 +203,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     }
 
     /**
-     * @return \Robo\Task\Filesystem\FilesystemStack
+     * @return FilesystemStack
      */
     protected function taskFilesystemStack()
     {
