@@ -58,6 +58,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         array $arguments,
         $opts
     ) {
+        // Define variables.
         $opts += ['force-install' => false];
         $privateKeyFile = array_pop($arguments);
         $user = array_pop($arguments);
@@ -66,16 +67,19 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $remote = $this->getRemoteSettings($servers, $user, $privateKeyFile, $opts['app']);
         $releaseDir = $remote['releasesdir'] . '/' . $remote['time'];
         $auth = new KeyFile($user, $privateKeyFile);
-        $currentProjectRoot = $remote['currentdir'] . '/..';
         $archive = $remote['time'] . '.tar.gz';
-        $build = $this->buildTask($archive);
 
         $collection = $this->collectionBuilder();
-        $collection->addTask($build);
-        // Create a backup, and a rollback if a site is present.
-        $status = $this->isSiteInstalled($worker, $auth, $remote);
-        if ($status) {
+
+        // Build the archive to deploy.
+        $collection->addTask($this->buildTask($archive));
+
+        // Create a backup and a rollback task if a site is already installed.
+        if ($this->isSiteInstalled($worker, $auth, $remote)) {
+            // Create a backup.
             $collection->addTask($this->backupTask($worker, $auth, $remote));
+
+            // Create a rollback for this backup for when the deploy fails.
             $collection->rollback(
                 $this->restoreBackupTask(
                     $worker,
@@ -84,57 +88,44 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 )
             );
         }
+
+        // Push the package to the servers and create the required symlinks.
         foreach ($servers as $server) {
-            $collection
-                ->taskPushPackage($server, $auth)
-                    ->destinationFolder($releaseDir)
-                    ->package($archive);
+            // Push the package.
+            $collection->addTask($this->pushPackageTask($server, $auth, $remote, $archive));
+
+            // Add any tasks to execute before creating the symlinks.
             $preSymlink = $this->preSymlinkTask($server, $auth, $remote);
             if ($preSymlink) {
                 $collection->addTask($preSymlink);
             }
-            // Switch the current symlink to the previous release.
-            $collection->rollback(
-                $this->taskSsh($server, $auth)
-                    ->remoteDirectory($currentProjectRoot, true)
-                    ->exec(
-                        'vendor/bin/robo digipolis:switch-previous '
-                        . $remote['releasesdir']
-                        . ' ' . $remote['currentdir']
-                    )
-            );
-            // Remove this release.
-            $collection->rollback(
-                $this->taskSsh($server, $auth)
-                    ->remoteDirectory($currentProjectRoot, true)
-                    ->exec('rm -rf ' . $releaseDir)
-            );
-            foreach ($remote['symlinks'] as $link) {
-                $collection->taskSsh($server, $auth)
-                    ->exec('ln -s -T -f ' . str_replace(':', ' ', $link));
-            }
+
+            // Switch the current symlink to the previous release on rollback.
+            $collection->rollback($this->switchPreviousTask($server, $auth, $remote));
+            // Remove this release on rollback.
+            $collection->rollback($this->removeFailedRelease($server, $auth, $remote, $releaseDir));
+
+            // Create the symlinks.
+            $collection->addTask($this->symlinksTask($server, $auth, $remote));
         }
+
+        // Initialize the site (update or install).
         $collection->addTask($this->initRemoteTask($worker, $auth, $remote, $opts, $opts['force-install']));
+
+        // Clear OPcache if present.
         if (isset($remote['opcache'])) {
-            $clearOpcache = 'vendor/bin/robo digipolis:clear-op-cache ' . $remote['opcache']['env'];
-            if ( isset($remote['opcache']['host'])) {
-                $clearOpcache .= ' --host=' . $remote['opcache']['host'];
-            }
-            $collection->taskSsh($worker, $auth)
-                ->remoteDirectory($currentProjectRoot, true)
-                ->exec($clearOpcache);
+            $collection->addTask($this->clearOpCacheTask($worker, $auth, $remote));
         }
+
+        // Clean release and backup dirs on the servers.
         foreach ($servers as $server) {
-            $collection->completion($this->taskSsh($server, $auth)
-                ->remoteDirectory($currentProjectRoot, true)
-                ->timeout(30)
-                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'])
-                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir'])
-            );
+            $collection->completion($this->cleanDirsTask($worker, $auth, $remote));
         }
+
         $clearCache = $this->clearCacheTask($worker, $auth, $remote);
+
+        // Clear the site's cache if required.
         if ($clearCache) {
-            // Clear cache.
             $collection->completion($clearCache);
         }
         return $collection;
@@ -171,6 +162,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     protected function clearCacheTask($worker, $auth, $remote) {
       return false;
     }
+
     /**
      * Switch the current release symlink to the previous release.
      *
@@ -537,6 +529,154 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 ->put($backupDir . '/' . $dbBackupFile, $dbBackupFile)
                 ->put($backupDir . '/' . $filesBackupFile, $filesBackupFile);
         return $collection;
+    }
+
+    /**
+     * Push a package to the server.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param \DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     * @param string|null $archivename
+     *   The path to the package to push.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The push package task.
+     */
+    protected function pushPackageTask($worker, AbstractAuth $auth, $remote, $archivename = null)
+    {
+        $archive = is_null($archivename)
+            ? $remote['time'] . '.tar.gz'
+            : $archivename;
+        $releaseDir = $remote['releasesdir'] . '/' . $remote['time'];
+        return $this->taskPushPackage($worker, $auth)
+            ->destinationFolder($releaseDir)
+            ->package($archive);
+    }
+
+    /**
+     * Switch the current symlink to the previous release on the server.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param \DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The switch previous task.
+     */
+    protected function switchPreviousTask($worker, AbstractAuth $auth, $remote)
+    {
+        $currentProjectRoot = $remote['currentdir'] . '/..';
+        return $this->taskSsh($worker, $auth)
+            ->remoteDirectory($currentProjectRoot, true)
+            ->exec(
+                'vendor/bin/robo digipolis:switch-previous '
+                . $remote['releasesdir']
+                . ' ' . $remote['currentdir']
+            );
+    }
+
+    /**
+     * Remove a failed release from the server.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param \DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     * @param string|null $releaseDirname
+     *   The path of the release dir to remove.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The remove release task.
+     */
+    protected function removeFailedRelease($worker, AbstractAuth $auth, $remote, $releaseDirname = null)
+    {
+        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $releaseDir = is_null($releaseDirname)
+            ? $remote['releasesdir'] . '/' . $remote['time']
+            : $releaseDirname;
+        $this->taskSsh($worker, $auth)
+            ->remoteDirectory($currentProjectRoot, true)
+            ->exec('rm -rf ' . $releaseDir);
+    }
+
+    /**
+     * Create all required symlinks on the server.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param \DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The symlink task.
+     */
+    protected function symlinksTask($worker, AbstractAuth $auth, $remote)
+    {
+        $collection = $this->collectionBuilder();
+        foreach ($remote['symlinks'] as $link) {
+            $collection->taskSsh($worker, $auth)
+                ->exec('ln -s -T -f ' . str_replace(':', ' ', $link));
+        }
+        return $collection;
+    }
+
+    /**
+     * Clear OPcache on the server.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param \DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The clear OPcache task.
+     */
+    protected function clearOpCacheTask($worker, AbstractAuth $auth, $remote)
+    {
+        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $clearOpcache = 'vendor/bin/robo digipolis:clear-op-cache ' . $remote['opcache']['env'];
+        if (isset($remote['opcache']['host'])) {
+            $clearOpcache .= ' --host=' . $remote['opcache']['host'];
+        }
+        return $this->taskSsh($worker, $auth)
+            ->remoteDirectory($currentProjectRoot, true)
+            ->exec($clearOpcache);
+    }
+
+    /**
+     * Clean the release and backup directories on the server.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param \DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The clean directories task.
+     */
+    protected function cleanDirsTask($worker, AbstractAuth $auth, $remote)
+    {
+        $currentProjectRoot = $remote['currentdir'] . '/..';
+        return $this->taskSsh($worker, $auth)
+                ->remoteDirectory($currentProjectRoot, true)
+                ->timeout(30)
+                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'])
+                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir']);
     }
 
     /**
