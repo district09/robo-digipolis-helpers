@@ -294,7 +294,9 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             // mirror that directory on the symlink target and then delete it
             // before creating the symlink
             $collection->exec('vendor/bin/robo digipolis:mirror-dir ' . $link . ' ' . $target);
-            $collection->exec('rm -rf ' . $link);
+            if ($target !== $remote['currentdir']) {
+                $collection->exec('rm -rf ' . $target);
+            }
         }
         return $collection;
     }
