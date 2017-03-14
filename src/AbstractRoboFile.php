@@ -403,7 +403,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $destinationHost,
         $destinationKeyFile,
         $sourceApp = 'default',
-        $destinationApp = 'default'
+        $destinationApp = 'default',
+        $opts = ['files' => false, 'data' => false]
     ) {
         $sourceRemote = $this->getRemoteSettings(
             $sourceHost,
@@ -427,7 +428,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $this->backupTask(
                 $sourceHost,
                 $sourceAuth,
-                $sourceRemote
+                $sourceRemote,
+                $opts
             )
         );
         // Download the backup.
@@ -435,7 +437,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $this->downloadBackupTask(
                 $sourceHost,
                 $sourceAuth,
-                $sourceRemote
+                $sourceRemote,
+                $opts
             )
         );
         // Upload the backup.
@@ -443,7 +446,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $this->uploadBackupTask(
                 $destinationHost,
                 $destinationAuth,
-                $destinationRemote
+                $destinationRemote,
+                $opts
             )
         );
         // Restore the backup.
@@ -451,7 +455,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $this->restoreBackupTask(
                 $destinationHost,
                 $destinationAuth,
-                $destinationRemote
+                $destinationRemote,
+                $opts
             )
         );
         return $collection;
@@ -470,27 +475,38 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return \Robo\Contract\TaskInterface
      *   The backup task.
      */
-    protected function backupTask($worker, AbstractAuth $auth, $remote)
-    {
+    protected function backupTask(
+        $worker,
+        AbstractAuth $auth,
+        $remote,
+        $opts = ['files' => false, 'data' => false]
+    ) {
+        if (!$opts['files'] && !$opts['data']) {
+          $opts = ['files' => true, 'data' => true];
+        }
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
         $currentProjectRoot = $remote['currentdir'] . '/..';
-
-        $dbBackupFile = $this->backupFileName('.sql');
-        $dbBackup = 'vendor/bin/robo digipolis:database-backup '
-            . '--destination=' . $backupDir . '/' . $dbBackupFile;
-
-        $filesBackupFile = $this->backupFileName('.tar.gz');
-        $filesBackup = 'tar -pczhf ' . $backupDir . '/'  . $filesBackupFile
-            . ' -C ' . $remote['filesdir'] . ' '
-            . ($this->fileBackupSubDirs ? implode(' ', $this->fileBackupSubDirs) : '*');
 
         $collection = $this->collectionBuilder();
         $collection
             ->taskSsh($worker, $auth)
                 ->remoteDirectory($currentProjectRoot, true)
-                ->exec('mkdir -p ' . $backupDir)
-                ->exec($dbBackup)
-                ->exec($filesBackup);
+                ->exec('mkdir -p ' . $backupDir);
+
+        if ($opts['files']) {
+            $filesBackupFile = $this->backupFileName('.tar.gz');
+            $filesBackup = 'tar -pczhf ' . $backupDir . '/'  . $filesBackupFile
+                . ' -C ' . $remote['filesdir'] . ' '
+                . ($this->fileBackupSubDirs ? implode(' ', $this->fileBackupSubDirs) : '*');
+            $collection->exec($filesBackup);
+        }
+
+        if ($opts['data']) {
+            $dbBackupFile = $this->backupFileName('.sql');
+            $dbBackup = 'vendor/bin/robo digipolis:database-backup '
+                . '--destination=' . $backupDir . '/' . $dbBackupFile;
+            $collection->exec($dbBackup);
+        }
         return $collection;
     }
 
@@ -507,35 +523,46 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return \Robo\Contract\TaskInterface
      *   The restore backup task.
      */
-    protected function restoreBackupTask($worker, AbstractAuth $auth, $remote)
-    {
+    protected function restoreBackupTask(
+        $worker,
+        AbstractAuth $auth,
+        $remote,
+        $opts = ['files' => false, 'data' => false]
+    ) {
+        if (!$opts['files'] && !$opts['data']) {
+          $opts = ['files' => true, 'data' => true];
+        }
 
         $currentProjectRoot = $remote['currentdir'] . '/..';
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
 
-        $filesBackupFile =  $this->backupFileName('.tar.gz', $remote['time']);
-        $dbBackupFile =  $this->backupFileName('.sql.gz', $remote['time']);
-
-        $dbRestore = 'vendor/bin/robo digipolis:database-restore '
-              . '--source=' . $backupDir . '/' . $dbBackupFile;
         $collection = $this->collectionBuilder();
 
         // Restore the files backup.
-        $preRestoreBackup = $this->preRestoreBackupTask($worker, $auth, $remote);
+        $preRestoreBackup = $this->preRestoreBackupTask($worker, $auth, $remote, $opts);
         if ($preRestoreBackup) {
             $collection->addTask($preRestoreBackup);
         }
-        $collection
-            ->taskSsh($worker, $auth)
-                ->remoteDirectory($remote['filesdir'], true)
-                ->exec('tar -xkzf ' . $backupDir . '/' . $filesBackupFile);
+
+        if ($opts['files']) {
+            $filesBackupFile =  $this->backupFileName('.tar.gz', $remote['time']);
+            $collection
+                ->taskSsh($worker, $auth)
+                    ->remoteDirectory($remote['filesdir'], true)
+                    ->exec('tar -xkzf ' . $backupDir . '/' . $filesBackupFile);
+        }
 
         // Restore the db backup.
-        $collection
-            ->taskSsh($worker, $auth)
-                ->remoteDirectory($currentProjectRoot, true)
-                ->timeout(60)
-                ->exec($dbRestore);
+        if ($opts['data']) {
+          $dbBackupFile =  $this->backupFileName('.sql.gz', $remote['time']);
+          $dbRestore = 'vendor/bin/robo digipolis:database-restore '
+              . '--source=' . $backupDir . '/' . $dbBackupFile;
+          $collection
+              ->taskSsh($worker, $auth)
+                  ->remoteDirectory($currentProjectRoot, true)
+                  ->timeout(60)
+                  ->exec($dbRestore);
+        }
         return $collection;
     }
 
@@ -553,19 +580,28 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      *   The pre restore backup task, false if no pre restore backup tasks need
      *   to run.
      */
-    protected function preRestoreBackupTask($worker, AbstractAuth $auth, $remote)
-    {
-        $removeFiles = 'rm -rf';
-        if (!$this->fileBackupSubDirs) {
-            $removeFiles .+ ' ./* ./.??*';
+    protected function preRestoreBackupTask(
+        $worker,
+        AbstractAuth $auth,
+        $remote,
+        $opts = ['files' => false, 'data' => false]
+    ) {
+        if (!$opts['files'] && !$opts['data']) {
+          $opts = ['files' => true, 'data' => true];
         }
-        foreach ($this->fileBackupSubDirs as $subdir) {
-            $removeFiles .= ' ' . $subdir . '/* ' . $subdir . '/.??*';
+        if ($opts['files']) {
+            $removeFiles = 'rm -rf';
+            if (!$this->fileBackupSubDirs) {
+                $removeFiles .+ ' ./* ./.??*';
+            }
+            foreach ($this->fileBackupSubDirs as $subdir) {
+                $removeFiles .= ' ' . $subdir . '/* ' . $subdir . '/.??*';
+            }
+            $collection = $this->collectionBuilder();
+            $collection->taskSsh($worker, $auth)
+                ->remoteDirectory($remote['filesdir'], true)
+                ->exec($removeFiles);
         }
-        $collection = $this->collectionBuilder();
-        $collection->taskSsh($worker, $auth)
-            ->remoteDirectory($remote['filesdir'], true)
-            ->exec($removeFiles);
         return $collection;
     }
 
@@ -582,17 +618,32 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return \Robo\Contract\TaskInterface
      *   The download backup task.
      */
-    protected function downloadBackupTask($worker, AbstractAuth $auth, $remote)
-    {
+    protected function downloadBackupTask(
+        $worker,
+        AbstractAuth $auth,
+        $remote,
+        $opts = ['files' => false, 'data' => false]
+    ) {
+        if (!$opts['files'] && !$opts['data']) {
+          $opts = ['files' => true, 'data' => true];
+        }
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
-        $dbBackupFile = $this->backupFileName('.sql.gz', $remote['time']);
-        $filesBackupFile = $this->backupFileName('.tar.gz', $remote['time']);
 
         $collection = $this->collectionBuilder();
         $collection
-            ->taskScp($worker, $auth)
-                ->get($backupDir . '/' . $dbBackupFile, $dbBackupFile)
-                ->get($backupDir . '/' . $filesBackupFile, $filesBackupFile);
+            ->taskScp($worker, $auth);
+
+        // Download files.
+        if ($opts['files']) {
+            $filesBackupFile = $this->backupFileName('.tar.gz', $remote['time']);
+            $collection->get($backupDir . '/' . $filesBackupFile, $filesBackupFile);
+        }
+
+        // Download data.
+        if ($opts['data']) {
+            $dbBackupFile = $this->backupFileName('.sql.gz', $remote['time']);
+            $collection->get($backupDir . '/' . $dbBackupFile, $dbBackupFile);
+        }
         return $collection;
     }
 
@@ -609,8 +660,15 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return \Robo\Contract\TaskInterface
      *   The upload backup task.
      */
-    protected function uploadBackupTask($worker, AbstractAuth $auth, $remote)
-    {
+    protected function uploadBackupTask(
+        $worker,
+        AbstractAuth $auth,
+        $remote,
+        $opts = ['files' => false, 'data' => false]
+    ) {
+        if (!$opts['files'] && !$opts['data']) {
+          $opts = ['files' => true, 'data' => true];
+        }
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
         $dbBackupFile = $this->backupFileName('.sql.gz', $remote['time']);
         $filesBackupFile = $this->backupFileName('.tar.gz', $remote['time']);
@@ -619,9 +677,13 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $collection
             ->taskSsh($worker, $auth)
                 ->exec('mkdir -p ' . $backupDir)
-            ->taskScp($worker, $auth)
-                ->put($backupDir . '/' . $dbBackupFile, $dbBackupFile)
-                ->put($backupDir . '/' . $filesBackupFile, $filesBackupFile);
+            ->taskScp($worker, $auth);
+        if ($opts['files']) {
+            $collection->put($backupDir . '/' . $filesBackupFile, $filesBackupFile);
+        }
+        if ($opts['data']) {
+            $collection->put($backupDir . '/' . $dbBackupFile, $dbBackupFile);
+        }
         return $collection;
     }
 
