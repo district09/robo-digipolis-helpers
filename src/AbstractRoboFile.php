@@ -406,6 +406,10 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $destinationApp = 'default',
         $opts = ['files' => false, 'data' => false]
     ) {
+        if (!$opts['files'] && !$opts['data']) {
+            $opts['files'] = true;
+            $opts['data'] = true;
+        }
         $sourceRemote = $this->getRemoteSettings(
             $sourceHost,
             $sourceUser,
@@ -482,7 +486,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $opts = ['files' => false, 'data' => false]
     ) {
         if (!$opts['files'] && !$opts['data']) {
-            $opts = ['files' => true, 'data' => true];
+            $opts['files'] = true;
+            $opts['data'] = true;
         }
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
         $currentProjectRoot = $remote['currentdir'] . '/..';
@@ -530,7 +535,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $opts = ['files' => false, 'data' => false]
     ) {
         if (!$opts['files'] && !$opts['data']) {
-            $opts = ['files' => true, 'data' => true];
+            $opts['files'] = true;
+            $opts['data'] = true;
         }
 
         $currentProjectRoot = $remote['currentdir'] . '/..';
@@ -587,7 +593,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $opts = ['files' => false, 'data' => false]
     ) {
         if (!$opts['files'] && !$opts['data']) {
-            $opts = ['files' => true, 'data' => true];
+            $opts['files'] = true;
+            $opts['data'] = true;
         }
         if ($opts['files']) {
             $removeFiles = 'rm -rf';
@@ -625,7 +632,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $opts = ['files' => false, 'data' => false]
     ) {
         if (!$opts['files'] && !$opts['data']) {
-            $opts = ['files' => true, 'data' => true];
+            $opts['files'] = true;
+            $opts['data'] = true;
         }
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
 
@@ -667,7 +675,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $opts = ['files' => false, 'data' => false]
     ) {
         if (!$opts['files'] && !$opts['data']) {
-            $opts = ['files' => true, 'data' => true];
+            $opts['files'] = true;
+            $opts['data'] = true;
         }
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
         $dbBackupFile = $this->backupFileName('.sql.gz', $remote['time']);
