@@ -1027,7 +1027,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return array
      *   The settings for the local environment and app.
      */
-    protected function getLocalSettings( $app, $timestamp = null)
+    protected function getLocalSettings($app, $timestamp = null)
     {
         $this->readProperties();
         $defaults = [
