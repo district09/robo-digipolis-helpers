@@ -845,6 +845,86 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     }
 
     /**
+     * Sync the database and files to your local environment.
+     *
+     * @param string $user
+     *   SSH user to connect to the source server.
+     * @param string $host
+     *   IP address of the source server.
+     * @param string $keyFile
+     *   Private key file to use to connect to the source server.
+     * @param array $opts
+     *   Command options
+     *
+     * @option app The name of the app we're syncing.
+     * @option files Sync only files.
+     * @option data Sync only the database.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The sync task.
+     */
+    public function digipolisSyncLocal(
+        $host,
+        $user,
+        $keyFile,
+        $opts = [
+            'app' => 'default',
+            'files' => false,
+            'data' => false,
+        ]
+    ) {
+        if (!$opts['files'] && !$opts['data']) {
+            $opts['files'] = true;
+            $opts['data'] = true;
+        }
+        $remote = $this->getRemoteSettings($host, $user, $keyFile, $opts['app']);
+        $local = $this->getLocalSettings($opts['app']);
+        $auth = new KeyFile($user, $keyFile);
+        $collection = $this->collectionBuilder();
+        // Create a backup.
+        $collection->addTask(
+            $this->backupTask(
+                $host,
+                $auth,
+                $remote,
+                $opts
+            )
+        );
+        // Download the backup.
+        $collection->addTask(
+            $this->downloadBackupTask(
+                $host,
+                $auth,
+                $remote,
+                $opts
+            )
+        );
+
+        $collection->taskExecStack();
+        if ($opts['files']) {
+            $filesBackupFile =  $this->backupFileName('.tar.gz', $remote['time']);
+            $collection
+                ->exec('chown -R $USER ' . dirname($local['filesdir']))
+                ->exec('chmod -R u+w ' . dirname($local['filesdir']))
+                ->exec('rm -rf ' . $local['filesdir'] . '/* ' . $local['filesdir'] . '/.??*')
+                ->exec('tar -xkzf ' . $filesBackupFile . ' -C ' . $local['filesdir'])
+                ->exec('rm -rf ' . $filesBackupFile);
+        }
+
+        // Restore the db backup.
+        if ($opts['data']) {
+            $dbBackupFile =  $this->backupFileName('.sql.gz', $remote['time']);
+            $dbRestore = 'vendor/bin/robo digipolis:database-restore '
+                . '--source=' . $dbBackupFile;
+            $cwd = getcwd();
+            $collection->exec('cd ' . $this->getConfig()->get('digipolis.root.project') . ' && ' . $dbRestore);
+            $collection->exec('cd ' . $cwd . ' && rm -rf ' . $dbBackupFile);
+
+        }
+        return $collection;
+    }
+
+    /**
      * Helper functions to replace tokens in an array.
      *
      * @param string|array $input
@@ -934,5 +1014,36 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             }
         }
         return $this->tokenReplace($this->getConfig()->get('remote'), $replacements) + $defaults;
+    }
+
+    /**
+     * Get the settings from the 'local' config key, with the tokens replaced.
+     *
+     * @param string $app
+     *   The name of the app these settings apply to.
+     * @param string|null $timestamp
+     *   The timestamp to use. Defaults to the request time.
+     *
+     * @return array
+     *   The settings for the local environment and app.
+     */
+    protected function getLocalSettings( $app, $timestamp = null)
+    {
+        $this->readProperties();
+        $defaults = [
+            'app' => $app,
+            'time' => is_null($timestamp) ? $this->time : $timestamp,
+            'project_root' => $this->getConfig()->get('digipolis.root.project'),
+            'web_root' => $this->getConfig()->get('digipolis.root.web'),
+        ];
+
+        // Set up destination config.
+        $replacements = array(
+            '[project_root]' => $this->getConfig()->get('digipolis.root.project'),
+            '[web_root]' => $this->getConfig()->get('digipolis.root.web'),
+            '[app]' => $app,
+            '[time]' => is_null($timestamp) ? $this->time : $timestamp,
+        );
+        return $this->tokenReplace($this->getConfig()->get('local'), $replacements) + $defaults;
     }
 }
