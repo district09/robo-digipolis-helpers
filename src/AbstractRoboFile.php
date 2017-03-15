@@ -919,7 +919,6 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $cwd = getcwd();
             $collection->exec('cd ' . $this->getConfig()->get('digipolis.root.project') . ' && ' . $dbRestore);
             $collection->exec('cd ' . $cwd . ' && rm -rf ' . $dbBackupFile);
-
         }
         return $collection;
     }
