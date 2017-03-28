@@ -108,6 +108,10 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
             // Create the symlinks.
             $collection->addTask($this->symlinksTask($server, $auth, $remote));
+            $postSymlink = $this->postSymlinkTask($server, $auth, $remote);
+            if ($postSymlink) {
+                $collection->addTask($postSymlink);
+            }
         }
 
         // Initialize the site (update or install).
@@ -277,6 +281,24 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $collection
             ->taskPackageProject($archive);
         return $collection;
+    }
+
+    /**
+     * Tasks to execute after creating the symlinks.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param \DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     *
+     * @return bool|\Robo\Contract\TaskInterface
+     *   The postsymlink task, false if no post symlink tasks need to run.
+     */
+    protected function postSymlinkTask($worker, AbstractAuth $auth, $remote)
+    {
+        return false;
     }
 
     /**
