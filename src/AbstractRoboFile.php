@@ -490,12 +490,12 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $opts['data'] = true;
         }
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
-        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $projectRoot = $remote['webdir'] . '/..';
 
         $collection = $this->collectionBuilder();
         $collection
             ->taskSsh($worker, $auth)
-                ->remoteDirectory($currentProjectRoot, true)
+                ->remoteDirectory($projectRoot, true)
                 ->exec('mkdir -p ' . $backupDir);
 
         if ($opts['files']) {
@@ -539,7 +539,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $opts['data'] = true;
         }
 
-        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $projectRoot = $remote['webdir'] . '/..';
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
 
         $collection = $this->collectionBuilder();
@@ -565,7 +565,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 . '--source=' . $backupDir . '/' . $dbBackupFile;
             $collection
                 ->taskSsh($worker, $auth)
-                    ->remoteDirectory($currentProjectRoot, true)
+                    ->remoteDirectory($projectRoot, true)
                     ->timeout(60)
                     ->exec($dbRestore);
         }
@@ -737,9 +737,9 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function switchPreviousTask($worker, AbstractAuth $auth, $remote)
     {
-        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $projectRoot = $remote['webdir'] . '/..';
         return $this->taskSsh($worker, $auth)
-            ->remoteDirectory($currentProjectRoot, true)
+            ->remoteDirectory($projectRoot, true)
             ->exec(
                 'vendor/bin/robo digipolis:switch-previous '
                 . $remote['releasesdir']
@@ -764,12 +764,12 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function removeFailedRelease($worker, AbstractAuth $auth, $remote, $releaseDirname = null)
     {
-        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $projectRoot = $remote['webdir'] . '/..';
         $releaseDir = is_null($releaseDirname)
             ? $remote['releasesdir'] . '/' . $remote['time']
             : $releaseDirname;
         return $this->taskSsh($worker, $auth)
-            ->remoteDirectory($currentProjectRoot, true)
+            ->remoteDirectory($projectRoot, true)
             ->exec('rm -rf ' . $releaseDir);
     }
 
