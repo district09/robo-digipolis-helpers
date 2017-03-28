@@ -74,9 +74,17 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         // Build the archive to deploy.
         $collection->addTask($this->buildTask($archive));
+        $installed = $this->isSiteInstalled($worker, $auth, $remote);
+
+
+        // Push the package to the servers and create the required symlinks.
+        foreach ($servers as $server) {
+            // Push the package.
+            $collection->addTask($this->pushPackageTask($server, $auth, $remote, $archive));
+        }
 
         // Create a backup and a rollback task if a site is already installed.
-        if ($this->isSiteInstalled($worker, $auth, $remote)) {
+        if ($installed) {
             // Create a backup.
             $collection->addTask($this->backupTask($worker, $auth, $remote));
 
@@ -90,11 +98,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             );
         }
 
-        // Push the package to the servers and create the required symlinks.
         foreach ($servers as $server) {
-            // Push the package.
-            $collection->addTask($this->pushPackageTask($server, $auth, $remote, $archive));
-
             // Add any tasks to execute before creating the symlinks.
             $preSymlink = $this->preSymlinkTask($server, $auth, $remote);
             if ($preSymlink) {
