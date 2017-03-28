@@ -76,7 +76,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $collection->addTask($this->buildTask($archive));
 
         // Create a backup and a rollback task if a site is already installed.
-        if ($this->isSiteInstalled($worker, $auth, $remote)) {
+        if ($this->isSiteInstalled($worker, $auth, $remote) && $this->currentReleaseHasRobo($worker, $auth, $remote)) {
             // Create a backup.
             $collection->addTask($this->backupTask($worker, $auth, $remote));
 
@@ -130,6 +130,16 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $collection->completion($clearCache);
         }
         return $collection;
+    }
+
+    protected function currentReleaseHasRobo($worker, AbstractAuth $auth, $remote)
+    {
+        $currentProjectRoot = $remote['currentdir'] . '/..';
+        return $this->taskSsh($worker, $auth)
+            ->remoteDirectory($currentProjectRoot, true)
+            ->exec('ls vendor/bin/robo | grep robo')
+            ->run()
+            ->wasSuccessful();
     }
 
     /**
