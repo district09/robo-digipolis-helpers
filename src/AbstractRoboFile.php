@@ -525,24 +525,26 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $currentProjectRoot = $remote['currentdir'] . '/..';
 
         $collection = $this->collectionBuilder();
-        $collection
-            ->taskSsh($worker, $auth)
-                ->remoteDirectory($currentProjectRoot, true)
-                ->exec('mkdir -p ' . $backupDir);
+        $collection->taskSsh($worker, $auth)
+            ->exec('mkdir -p ' . $backupDir);
 
         if ($opts['files']) {
             $filesBackupFile = $this->backupFileName('.tar.gz');
             $filesBackup = 'tar -pczhf ' . $backupDir . '/'  . $filesBackupFile
                 . ' -C ' . $remote['filesdir'] . ' '
                 . ($this->fileBackupSubDirs ? implode(' ', $this->fileBackupSubDirs) : '*');
-            $collection->exec($filesBackup);
+            $collection->taskSsh($worker, $auth)
+                ->remoteDirectory($remote['filesdir'])
+                ->exec($filesBackup);
         }
 
         if ($opts['data']) {
             $dbBackupFile = $this->backupFileName('.sql');
             $dbBackup = 'vendor/bin/robo digipolis:database-backup '
                 . '--destination=' . $backupDir . '/' . $dbBackupFile;
-            $collection->exec($dbBackup);
+            $collection->taskSsh($worker, $auth)
+                ->remoteDirectory($remote['filesdir'])
+                ->exec($dbBackup);
         }
         return $collection;
     }
