@@ -543,7 +543,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $dbBackup = 'vendor/bin/robo digipolis:database-backup '
                 . '--destination=' . $backupDir . '/' . $dbBackupFile;
             $collection->taskSsh($worker, $auth)
-                ->remoteDirectory($currentProjectRoot)
+                ->remoteDirectory($currentProjectRoot, true)
                 ->exec($dbBackup);
         }
         return $collection;
