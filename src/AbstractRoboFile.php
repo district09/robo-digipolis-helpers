@@ -804,6 +804,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             : $releaseDirname;
         return $this->taskSsh($worker, $auth)
             ->remoteDirectory($currentProjectRoot, true)
+            ->exec('chown -R ' . $remote['user'] . ':' . $remote['user'] . ' ' . $releaseDir)
+            ->exec('chmod -R a+rwx ' . $releaseDir)
             ->exec('rm -rf ' . $releaseDir);
     }
 
