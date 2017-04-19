@@ -535,6 +535,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 . ($this->fileBackupSubDirs ? implode(' ', $this->fileBackupSubDirs) : '*');
             $collection->taskSsh($worker, $auth)
                 ->remoteDirectory($remote['filesdir'])
+                ->timeout(60)
                 ->exec($filesBackup);
         }
 
