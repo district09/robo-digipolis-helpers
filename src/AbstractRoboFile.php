@@ -590,6 +590,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $collection
                 ->taskSsh($worker, $auth)
                     ->remoteDirectory($remote['filesdir'], true)
+                    ->timeout(60)
                     ->exec('tar -xkzf ' . $backupDir . '/' . $filesBackupFile);
         }
 
