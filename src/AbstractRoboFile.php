@@ -1,4 +1,4 @@
-<?php
+pc<?php
 
 namespace DigipolisGent\Robo\Helpers;
 
@@ -535,7 +535,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 . ($this->fileBackupSubDirs ? implode(' ', $this->fileBackupSubDirs) : '*');
             $collection->taskSsh($worker, $auth)
                 ->remoteDirectory($remote['filesdir'])
-                ->timeout(60)
+                ->timeout(300)
                 ->exec($filesBackup);
         }
 
@@ -590,7 +590,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $collection
                 ->taskSsh($worker, $auth)
                     ->remoteDirectory($remote['filesdir'], true)
-                    ->timeout(60)
+                    ->timeout(300)
                     ->exec('tar -xkzf ' . $backupDir . '/' . $filesBackupFile);
         }
 
