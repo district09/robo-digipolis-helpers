@@ -545,6 +545,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 . '--destination=' . $backupDir . '/' . $dbBackupFile;
             $collection->taskSsh($worker, $auth)
                 ->remoteDirectory($currentProjectRoot, true)
+                ->timeout(300)
                 ->exec($dbBackup);
         }
         return $collection;
