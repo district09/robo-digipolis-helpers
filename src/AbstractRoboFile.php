@@ -43,6 +43,11 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     }
 
     /**
+     * Execute code validation for this project.
+     */
+    abstract public function digipolisValidateCode();
+
+    /**
      * Build a site and push it to the servers.
      *
      * @param array $arguments
@@ -1065,7 +1070,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @return array
      *   The settings for the local environment and app.
      */
-    protected function getLocalSettings($app, $timestamp = null)
+    protected function getLocalSettings($app = null, $timestamp = null)
     {
         $this->readProperties();
         $defaults = [
