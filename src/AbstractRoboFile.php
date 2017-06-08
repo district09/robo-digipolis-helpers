@@ -546,11 +546,10 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             foreach ($this->excludeFromBackup as $exclude) {
                 $excludeFromBackup .= ' --exclude=' . $exclude;
             }
-            $filesBackup = 'tar -pczhf'
+            $filesBackup = 'tar -pczhf ' . $backupDir . '/'  . $filesBackupFile
+                . ' -C ' . $remote['filesdir']
                 . $excludeFromBackup
-                . ' ' .$backupDir . '/'  . $filesBackupFile
-                . ' -C ' . $remote['filesdir'] . ' '
-                . ($this->fileBackupSubDirs ? implode(' ', $this->fileBackupSubDirs) : '*');
+                . ' ' . ($this->fileBackupSubDirs ? implode(' ', $this->fileBackupSubDirs) : '*');
             $collection->taskSsh($worker, $auth)
                 ->remoteDirectory($remote['filesdir'])
                 ->timeout(300)
