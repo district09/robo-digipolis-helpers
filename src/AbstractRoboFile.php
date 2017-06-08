@@ -30,9 +30,16 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     /**
      * File backup subdirs.
      *
-     * @var type
+     * @var string[]
      */
     protected $fileBackupSubDirs = [];
+
+    /**
+     * Files or directories to exclude from the backup.
+     *
+     * @var string[]
+     */
+     protected $excludeFromBackup = [];
 
     /**
      * Create a RoboFileBase instance.
@@ -535,7 +542,13 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         if ($opts['files']) {
             $filesBackupFile = $this->backupFileName('.tar.gz');
-            $filesBackup = 'tar -pczhf ' . $backupDir . '/'  . $filesBackupFile
+            $excludeFromBackup = '';
+            foreach ($this->excludeFromBackup as $exlcude) {
+                $excludeFromBackup .= ' --exclude=' . $exclude;
+            }
+            $filesBackup = 'tar -pczhf'
+                . $excludeFromBackup
+                . ' ' .$backupDir . '/'  . $filesBackupFile
                 . ' -C ' . $remote['filesdir'] . ' '
                 . ($this->fileBackupSubDirs ? implode(' ', $this->fileBackupSubDirs) : '*');
             $collection->taskSsh($worker, $auth)
