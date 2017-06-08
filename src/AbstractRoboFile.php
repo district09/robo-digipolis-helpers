@@ -543,7 +543,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         if ($opts['files']) {
             $filesBackupFile = $this->backupFileName('.tar.gz');
             $excludeFromBackup = '';
-            foreach ($this->excludeFromBackup as $exlcude) {
+            foreach ($this->excludeFromBackup as $exclude) {
                 $excludeFromBackup .= ' --exclude=' . $exclude;
             }
             $filesBackup = 'tar -pczhf'
