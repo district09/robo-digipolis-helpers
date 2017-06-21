@@ -39,7 +39,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      *
      * @var string[]
      */
-     protected $excludeFromBackup = [];
+    protected $excludeFromBackup = [];
 
     /**
      * Create a RoboFileBase instance.
@@ -489,6 +489,15 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 $opts
             )
         );
+        // Remove the backup from the source.
+        $collection->addTask(
+            $this->removeBackupTask(
+                $destinationHost,
+                $destinationAuth,
+                $destinationRemote,
+                $opts
+            )
+        );
         // Upload the backup.
         $collection->addTask(
             $this->uploadBackupTask(
@@ -501,6 +510,15 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         // Restore the backup.
         $collection->addTask(
             $this->restoreBackupTask(
+                $destinationHost,
+                $destinationAuth,
+                $destinationRemote,
+                $opts
+            )
+        );
+        // Remove the backup from the destination.
+        $collection->addTask(
+            $this->removeBackupTask(
                 $destinationHost,
                 $destinationAuth,
                 $destinationRemote,
@@ -537,6 +555,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $currentProjectRoot = $remote['currentdir'] . '/..';
 
         $collection = $this->collectionBuilder();
+        $collection->rollback($this->removeBackupTask($worker, $auth, $remote, $opts));
         $collection->taskSsh($worker, $auth)
             ->exec('mkdir -p ' . $backupDir);
 
@@ -565,6 +584,34 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 ->timeout(300)
                 ->exec($dbBackup);
         }
+        return $collection;
+    }
+
+    /**
+     * Remove a backup.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param \DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The backup task.
+     */
+    protected function removeBackupTask(
+        $worker,
+        AbstractAuth $auth,
+        $remote,
+        $opts = ['files' => false, 'data' => false]
+    ) {
+        $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
+
+        $collection = $this->collectionBuilder();
+        $collection->taskSsh($worker, $auth)
+            ->exec('rm -rf ' . $backupDir);
+
         return $collection;
     }
 
@@ -737,6 +784,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $filesBackupFile = $this->backupFileName('.tar.gz', $remote['time']);
 
         $collection = $this->collectionBuilder();
+        $collection->rollback($this->removeBackupTask($worker, $auth, $remote, $opts));
         $collection
             ->taskSsh($worker, $auth)
                 ->exec('mkdir -p ' . $backupDir)
