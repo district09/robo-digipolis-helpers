@@ -525,6 +525,15 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 $opts
             )
         );
+        // Finally remove the local backups.
+
+        $dbBackupFile = $this->backupFileName('.sql.gz', $sourceRemote['time']);
+        $filesBackupFile = $this->backupFileName('.tar.gz', $sourceRemote['time']);
+        $collection->addTask(
+            $this->taskExecStack()
+                ->exec('rm -rf ' . $dbBackupFile)
+                ->exec('rm -rf ' . $filesBackupFile)
+        );
         return $collection;
     }
 
