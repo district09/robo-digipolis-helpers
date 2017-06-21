@@ -492,9 +492,9 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         // Remove the backup from the source.
         $collection->addTask(
             $this->removeBackupTask(
-                $destinationHost,
-                $destinationAuth,
-                $destinationRemote,
+                $sourceHost,
+                $sourceAuth,
+                $sourceRemote,
                 $opts
             )
         );
