@@ -565,7 +565,6 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $currentProjectRoot = $remote['currentdir'] . '/..';
 
         $collection = $this->collectionBuilder();
-        $collection->rollback($this->removeBackupTask($worker, $auth, $remote, $opts));
         $collection->taskSsh($worker, $auth)
             ->exec('mkdir -p ' . $backupDir);
 
@@ -794,7 +793,6 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $filesBackupFile = $this->backupFileName('.tar.gz', $remote['time']);
 
         $collection = $this->collectionBuilder();
-        $collection->rollback($this->removeBackupTask($worker, $auth, $remote, $opts));
         $collection
             ->taskSsh($worker, $auth)
                 ->exec('mkdir -p ' . $backupDir)
