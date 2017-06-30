@@ -517,7 +517,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             )
         );
         // Remove the backup from the destination.
-        $collection->addTask(
+        $collection->completion(
             $this->removeBackupTask(
                 $destinationHost,
                 $destinationAuth,
@@ -529,7 +529,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         $dbBackupFile = $this->backupFileName('.sql.gz', $sourceRemote['time']);
         $filesBackupFile = $this->backupFileName('.tar.gz', $sourceRemote['time']);
-        $collection->addTask(
+
+        $collection->completion(
             $this->taskExecStack()
                 ->exec('rm -rf ' . $dbBackupFile)
                 ->exec('rm -rf ' . $filesBackupFile)
