@@ -5,9 +5,12 @@ namespace DigipolisGent\Robo\Helpers;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\KeyFile;
 use DigipolisGent\Robo\Task\General\Common\DigipolisPropertiesAwareInterface;
+use function md5;
 use Robo\Contract\ConfigAwareInterface;
 use Robo\Task\Filesystem\FilesystemStack;
+use function rtrim;
 use Symfony\Component\Finder\Finder;
+use function uniqid;
 
 abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisPropertiesAwareInterface, ConfigAwareInterface
 {
@@ -448,12 +451,15 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $destinationKeyFile,
         $sourceApp = 'default',
         $destinationApp = 'default',
-        $opts = ['files' => false, 'data' => false]
+        $opts = ['files' => false, 'data' => false, 'rsync' => true]
     ) {
         if (!$opts['files'] && !$opts['data']) {
             $opts['files'] = true;
             $opts['data'] = true;
         }
+
+        $opts['rsync'] = !isset($opts['rsync']) || $opts['rsync'];
+
         $sourceRemote = $this->getRemoteSettings(
             $sourceHost,
             $sourceUser,
@@ -471,70 +477,146 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $destinationAuth = new KeyFile($destinationUser, $destinationKeyFile);
 
         $collection = $this->collectionBuilder();
-        // Create a backup.
-        $collection->addTask(
-            $this->backupTask(
-                $sourceHost,
-                $sourceAuth,
-                $sourceRemote,
-                $opts
-            )
-        );
-        // Download the backup.
-        $collection->addTask(
-            $this->downloadBackupTask(
-                $sourceHost,
-                $sourceAuth,
-                $sourceRemote,
-                $opts
-            )
-        );
-        // Remove the backup from the source.
-        $collection->addTask(
-            $this->removeBackupTask(
-                $sourceHost,
-                $sourceAuth,
-                $sourceRemote,
-                $opts
-            )
-        );
-        // Upload the backup.
-        $collection->addTask(
-            $this->uploadBackupTask(
-                $destinationHost,
-                $destinationAuth,
-                $destinationRemote,
-                $opts
-            )
-        );
-        // Restore the backup.
-        $collection->addTask(
-            $this->restoreBackupTask(
-                $destinationHost,
-                $destinationAuth,
-                $destinationRemote,
-                $opts
-            )
-        );
-        // Remove the backup from the destination.
-        $collection->completion(
-            $this->removeBackupTask(
-                $destinationHost,
-                $destinationAuth,
-                $destinationRemote,
-                $opts
-            )
-        );
-        // Finally remove the local backups.
 
-        $dbBackupFile = $this->backupFileName('.sql.gz', $sourceRemote['time']);
-        $filesBackupFile = $this->backupFileName('.tar.gz', $sourceRemote['time']);
+        if ($opts['files'] && $opts['rsync']) {
+            $opts['files'] = FALSE;
 
-        $collection->completion(
-            $this->taskExecStack()
-                ->exec('rm -rf ' . $dbBackupFile)
-                ->exec('rm -rf ' . $filesBackupFile)
-        );
+            $tmpKeyFile = '~/.ssh/' . uniqid('robo_', TRUE) . '.id_rsa';
+
+            // Generate a temporary key.
+            $collection->addTask(
+                $this->taskExec('ssh-keygen -q -t rsa -b 4096 -N "" -f ' . $tmpKeyFile . ' -C "robo:' . md5($tmpKeyFile) . '"')
+            );
+
+            $collection->completion(
+                $this->taskExecStack()
+                    ->exec('rm -f ' . $tmpKeyFile . ' ' . $tmpKeyFile . '.pub')
+            );
+
+            // Install it on the destination host.
+            $collection->addTask(
+                $this->taskExec('cat ' . $tmpKeyFile . '.pub | ssh ' . $destinationUser . '@' . $destinationHost . ' -o StrictHostKeyChecking=no -i ' . $destinationKeyFile . ' "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"')
+            );
+
+            $collection->completion(
+                $this->taskSsh($destinationHost, $destinationAuth)
+                    ->exec('sed -i "/robo:' . md5($tmpKeyFile) . '/d" ~/.ssh/authorized_keys')
+            );
+
+            $collection->addTask(
+                $this->taskRsync()
+                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `readlink -e ' . $sourceKeyFile . '`"')
+                    ->fromPath($tmpKeyFile)
+                    ->toHost($sourceHost)
+                    ->toUser($sourceUser)
+                    ->toPath('~/.ssh')
+                    ->archive()
+                    ->compress()
+                    ->checksum()
+                    ->wholeFile()
+            );
+
+            $collection->completion(
+                $this->taskSsh($sourceHost, $sourceAuth)
+                    ->exec('rm -f ' . $tmpKeyFile)
+            );
+
+            $dirs = ($this->fileBackupSubDirs ? $this->fileBackupSubDirs : ['']);
+
+            foreach ($dirs as $dir) {
+                $dir .= ($dir !== '' ? '/' : '');
+
+                $rsync = $this->taskRsync()
+                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `readlink -e ' . $tmpKeyFile . '`"')
+                    ->fromPath($sourceRemote['filesdir'] . '/' . $dir)
+                    ->toHost($destinationHost)
+                    ->toUser($destinationUser)
+                    ->toPath($destinationRemote['filesdir'] . '/' . $dir)
+                    ->archive()
+                    ->delete()
+                    ->rawArg('--copy-links --keep-dirlinks')
+                    ->compress()
+                    ->checksum()
+                    ->wholeFile();
+
+                foreach ($this->excludeFromBackup as $exclude) {
+                    $rsync->exclude($exclude);
+                }
+
+                $collection->addTask(
+                    $this->taskSsh($sourceHost, $sourceAuth)
+                        ->timeout(300)
+                        ->exec($rsync)
+                );
+            }
+        }
+
+        if ($opts['data'] || $opts['files']) {
+            // Create a backup.
+            $collection->addTask(
+                $this->backupTask(
+                    $sourceHost,
+                    $sourceAuth,
+                    $sourceRemote,
+                    $opts
+                )
+            );
+            // Sync the backup.
+            $collection->addTask(
+                $this->downloadBackupTask(
+                    $sourceHost,
+                    $sourceAuth,
+                    $sourceRemote,
+                    $opts
+                )
+            );
+            // Remove the backup from the source.
+            $collection->addTask(
+                $this->removeBackupTask(
+                    $sourceHost,
+                    $sourceAuth,
+                    $sourceRemote,
+                    $opts
+                )
+            );
+            // Upload the backup.
+            $collection->addTask(
+                $this->uploadBackupTask(
+                    $destinationHost,
+                    $destinationAuth,
+                    $destinationRemote,
+                    $opts
+                )
+            );
+            // Restore the backup.
+            $collection->addTask(
+                $this->restoreBackupTask(
+                    $destinationHost,
+                    $destinationAuth,
+                    $destinationRemote,
+                    $opts
+                )
+            );
+            // Remove the backup from the destination.
+            $collection->completion(
+                $this->removeBackupTask(
+                    $destinationHost,
+                    $destinationAuth,
+                    $destinationRemote,
+                    $opts
+                )
+            );
+
+            // Finally remove the local backups.
+            $dbBackupFile = $this->backupFileName('.sql.gz', $sourceRemote['time']);
+            $filesBackupFile = $opts['files'] ? $this->backupFileName('.tar.gz', $sourceRemote['time']) : '';
+
+            $collection->completion(
+                $this->taskExecStack()
+                    ->exec('rm -f ' . $dbBackupFile . ' ' . $filesBackupFile)
+            );
+        }
+
         return $collection;
     }
 
@@ -714,12 +796,13 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             foreach ($this->fileBackupSubDirs as $subdir) {
                 $removeFiles .= ' ' . $subdir . '/* ' . $subdir . '/.??*';
             }
-            $collection = $this->collectionBuilder();
-            $collection->taskSsh($worker, $auth)
+
+            return $this->taskSsh($worker, $auth)
                 ->remoteDirectory($remote['filesdir'], true)
                 ->exec($removeFiles);
         }
-        return $collection;
+
+        return FALSE;
     }
 
     /**
@@ -971,6 +1054,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      * @option app The name of the app we're syncing.
      * @option files Sync only files.
      * @option data Sync only the database.
+     * @option rsync Sync the files via rsync.
      *
      * @return \Robo\Contract\TaskInterface
      *   The sync task.
@@ -983,55 +1067,99 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             'app' => 'default',
             'files' => false,
             'data' => false,
+            'rsync' => true,
         ]
     ) {
         if (!$opts['files'] && !$opts['data']) {
             $opts['files'] = true;
             $opts['data'] = true;
         }
+
+        $opts['rsync'] = !isset($opts['rsync']) || $opts['rsync'];
+
         $remote = $this->getRemoteSettings($host, $user, $keyFile, $opts['app']);
         $local = $this->getLocalSettings($opts['app']);
         $auth = new KeyFile($user, $keyFile);
         $collection = $this->collectionBuilder();
-        // Create a backup.
-        $collection->addTask(
-            $this->backupTask(
-                $host,
-                $auth,
-                $remote,
-                $opts
-            )
-        );
-        // Download the backup.
-        $collection->addTask(
-            $this->downloadBackupTask(
-                $host,
-                $auth,
-                $remote,
-                $opts
-            )
-        );
 
-        $collection->taskExecStack();
         if ($opts['files']) {
-            $filesBackupFile =  $this->backupFileName('.tar.gz', $remote['time']);
             $collection
-                ->exec('chown -R $USER ' . dirname($local['filesdir']))
-                ->exec('chmod -R u+w ' . dirname($local['filesdir']))
-                ->exec('rm -rf ' . $local['filesdir'] . '/* ' . $local['filesdir'] . '/.??*')
-                ->exec('tar -xkzf ' . $filesBackupFile . ' -C ' . $local['filesdir'])
-                ->exec('rm -rf ' . $filesBackupFile);
+                ->taskExecStack()
+                    ->exec('chown -R $USER ' . dirname($local['filesdir']))
+                    ->exec('chmod -R u+w ' . dirname($local['filesdir']));
+
+            if ($opts['rsync']) {
+                $opts['files'] = FALSE;
+
+                $dirs = ($this->fileBackupSubDirs ? $this->fileBackupSubDirs : ['']);
+
+                foreach ($dirs as $dir) {
+                    $dir .= ($dir !== '' ? '/' : '');
+
+                    $rsync = $this->taskRsync()
+                        ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `readlink -e ' . $keyFile . '`"')
+                        ->fromHost($host)
+                        ->fromUser($user)
+                        ->fromPath($remote['filesdir'] . '/' . $dir)
+                        ->toPath($local['filesdir'] . '/' . $dir)
+                        ->archive()
+                        ->delete()
+                        ->rawArg('--copy-links --keep-dirlinks')
+                        ->compress()
+                        ->checksum()
+                        ->wholeFile();
+
+                    foreach ($this->excludeFromBackup as $exclude) {
+                        $rsync->exclude($exclude);
+                    }
+
+                    $collection->addTask($rsync);
+                }
+            }
         }
 
-        // Restore the db backup.
+        if ($opts['data'] || $opts['files']) {
+            // Create a backup.
+            $collection->addTask(
+                $this->backupTask(
+                    $host,
+                    $auth,
+                    $remote,
+                    $opts
+                )
+            );
+            // Download the backup.
+            $collection->addTask(
+                $this->downloadBackupTask(
+                    $host,
+                    $auth,
+                    $remote,
+                    $opts
+                )
+            );
+        }
+
+        if ($opts['files']) {
+            // Restore the files backup.
+            $filesBackupFile =  $this->backupFileName('.tar.gz', $remote['time']);
+            $collection
+                ->exec('rm -rf ' . $local['filesdir'] . '/* ' . $local['filesdir'] . '/.??*')
+                ->exec('tar -xkzf ' . $filesBackupFile . ' -C ' . $local['filesdir'])
+                ->exec('rm -f ' . $filesBackupFile);
+        }
+
         if ($opts['data']) {
+            // Restore the db backup.
             $dbBackupFile =  $this->backupFileName('.sql.gz', $remote['time']);
             $dbRestore = 'vendor/bin/robo digipolis:database-restore '
                 . '--source=' . $dbBackupFile;
             $cwd = getcwd();
+
+            $collection->taskExecStack();
             $collection->exec('cd ' . $this->getConfig()->get('digipolis.root.project') . ' && ' . $dbRestore);
-            $collection->exec('cd ' . $cwd . ' && rm -rf ' . $dbBackupFile);
+            $collection->exec('cd ' . $cwd . ' && rm -f ' . $dbBackupFile);
         }
+
         return $collection;
     }
 
