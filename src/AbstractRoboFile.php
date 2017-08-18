@@ -478,9 +478,9 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $collection = $this->collectionBuilder();
 
         if ($opts['files'] && $opts['rsync']) {
-            $opts['files'] = FALSE;
+            $opts['files'] = false;
 
-            $tmpKeyFile = '~/.ssh/' . uniqid('robo_', TRUE) . '.id_rsa';
+            $tmpKeyFile = '~/.ssh/' . uniqid('robo_', true) . '.id_rsa';
 
             // Generate a temporary key.
             $collection->addTask(
@@ -801,7 +801,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 ->exec($removeFiles);
         }
 
-        return FALSE;
+        return false;
     }
 
     /**
@@ -1088,7 +1088,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                     ->exec('chmod -R u+w ' . dirname($local['filesdir']));
 
             if ($opts['rsync']) {
-                $opts['files'] = FALSE;
+                $opts['files'] = false;
 
                 $dirs = ($this->fileBackupSubDirs ? $this->fileBackupSubDirs : ['']);
 
