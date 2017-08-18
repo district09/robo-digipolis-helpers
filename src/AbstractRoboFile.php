@@ -8,7 +8,6 @@ use DigipolisGent\Robo\Task\General\Common\DigipolisPropertiesAwareInterface;
 use function md5;
 use Robo\Contract\ConfigAwareInterface;
 use Robo\Task\Filesystem\FilesystemStack;
-use function rtrim;
 use Symfony\Component\Finder\Finder;
 use function uniqid;
 
