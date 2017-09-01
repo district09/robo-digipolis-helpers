@@ -288,6 +288,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function buildTask($archivename = null)
     {
+        $this->readProperties();
         $archive = is_null($archivename) ? $this->time . '.tar.gz' : $archivename;
         $collection = $this->collectionBuilder();
         $collection
