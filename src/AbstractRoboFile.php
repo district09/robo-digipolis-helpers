@@ -701,6 +701,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         $collection = $this->collectionBuilder();
         $collection->taskSsh($worker, $auth)
+            ->timeout(300)
             ->exec('rm -rf ' . $backupDir);
 
         return $collection;
@@ -799,6 +800,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
             return $this->taskSsh($worker, $auth)
                 ->remoteDirectory($remote['filesdir'], true)
+                // Files dir can be pretty big on large sites.
+                ->timeout(300)
                 ->exec($removeFiles);
         }
 
