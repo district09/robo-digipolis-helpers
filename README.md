@@ -8,7 +8,7 @@
 [![Build Status](https://travis-ci.org/digipolisgent/robo-digipolis-helpers.svg?branch=develop)](https://travis-ci.org/digipolisgent/robo-digipolis-helpers)
 [![Maintainability](https://api.codeclimate.com/v1/badges/1c4c5693cb7945f5e5e9/maintainability)](https://codeclimate.com/github/digipolisgent/robo-digipolis-helpers/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/1c4c5693cb7945f5e5e9/test_coverage)](https://codeclimate.com/github/digipolisgent/robo-digipolis-helpers/test_coverage)
-[![PHP 7 ready](http://php7ready.timesplinter.ch/digipolisgent/robo-digipolis-helpers/develop/badge.svg)](https://travis-ci.org/digipolisgent/robo-digipolis-helpers)
+[![PHP 7 ready](https://php7ready.timesplinter.ch/digipolisgent/robo-digipolis-helpers/develop/badge.svg)](https://travis-ci.org/digipolisgent/robo-digipolis-helpers)
 
 
 Used by digipolis, abstract robo file to help with the deploy flow.
