@@ -5,11 +5,9 @@ namespace DigipolisGent\Robo\Helpers;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\KeyFile;
 use DigipolisGent\Robo\Task\General\Common\DigipolisPropertiesAwareInterface;
-use function md5;
 use Robo\Contract\ConfigAwareInterface;
 use Robo\Task\Filesystem\FilesystemStack;
 use Symfony\Component\Finder\Finder;
-use function uniqid;
 
 abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisPropertiesAwareInterface, ConfigAwareInterface
 {
