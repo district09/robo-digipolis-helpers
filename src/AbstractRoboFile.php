@@ -138,7 +138,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         // Clean release and backup dirs on the servers.
         foreach ($servers as $server) {
-            $collection->completion($this->cleanDirsTask($worker, $auth, $remote));
+            $collection->completion($this->cleanDirsTask($server, $auth, $remote));
         }
 
         $clearCache = $this->clearCacheTask($worker, $auth, $remote);
@@ -1038,8 +1038,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         return $this->taskSsh($worker, $auth)
                 ->remoteDirectory($currentProjectRoot, true)
                 ->timeout(30)
-                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'])
-                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir']);
+                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'] . (isset($remote['cleandir_limit']) ? ':' . $remote['cleandir_limit'] : ''))
+                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir'] . (isset($remote['cleandir_limit']) ? ':' . $remote['cleandir_limit'] : ''));
     }
 
     /**
