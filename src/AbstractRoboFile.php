@@ -1037,8 +1037,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         return $this->taskSsh($worker, $auth)
                 ->remoteDirectory($currentProjectRoot, true)
                 ->timeout(30)
-                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'] . (!empty(cleandirLimit) ? ':' . $cleandirLimit : ''))
-                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir'] . (!empty(cleandirLimit) ? ':' . $cleandirLimit-1 : ''));
+                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'] . (!empty($cleandirLimit) ? ':' . $cleandirLimit : ''))
+                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir'] . (!empty($cleandirLimit) ? ':' . $cleandirLimit-1 : ''));
     }
 
     /**
