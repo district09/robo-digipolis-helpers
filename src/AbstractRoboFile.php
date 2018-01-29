@@ -543,7 +543,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
                 $collection->addTask(
                     $this->taskSsh($sourceHost, $sourceAuth)
-                        ->timeout(300)
+                        ->timeout(1800)
                         ->exec($rsync)
                 );
             }
