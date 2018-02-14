@@ -81,6 +81,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $releaseDir = $remote['releasesdir'] . '/' . $remote['time'];
         $auth = new KeyFile($user, $privateKeyFile);
         $archive = $remote['time'] . '.tar.gz';
+        $backupOpts = ['files' => false, 'data' => true];
 
         $collection = $this->collectionBuilder();
 
@@ -90,14 +91,15 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         // Create a backup and a rollback task if a site is already installed.
         if ($this->isSiteInstalled($worker, $auth, $remote) && $this->currentReleaseHasRobo($worker, $auth, $remote)) {
             // Create a backup.
-            $collection->addTask($this->backupTask($worker, $auth, $remote));
+            $collection->addTask($this->backupTask($worker, $auth, $remote, $backupOpts));
 
             // Create a rollback for this backup for when the deploy fails.
             $collection->rollback(
                 $this->restoreBackupTask(
                     $worker,
                     $auth,
-                    $remote
+                    $remote,
+                    $backupOpts
                 )
             );
         }
@@ -130,7 +132,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $collection->addTask($this->initRemoteTask($worker, $auth, $remote, $opts, $opts['force-install']));
 
         // Clear OPcache if present.
-        if (isset($remote['opcache'])) {
+        if (isset($remote['opcache']) && (!array_key_exists('clear', $remote['opcache']) || $remote['opcache']['clear'])) {
             $collection->addTask($this->clearOpCacheTask($worker, $auth, $remote));
         }
 
