@@ -913,9 +913,16 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             ? $remote['time'] . '.tar.gz'
             : $archivename;
         $releaseDir = $remote['releasesdir'] . '/' . $remote['time'];
-        return $this->taskPushPackage($worker, $auth)
+        $collection = $this->collectionBuilder();
+        $collection->taskPushPackage($worker, $auth)
             ->destinationFolder($releaseDir)
             ->package($archive);
+
+        $collection->taskSsh($worker, $auth)
+            ->remoteDirectory($releaseDir, true)
+            ->exec('chmod u+x vendor/bin/robo');
+
+        return $collection;
     }
 
     /**
