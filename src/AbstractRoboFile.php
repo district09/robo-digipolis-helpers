@@ -918,9 +918,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             ->destinationFolder($releaseDir)
             ->package($archive);
 
-        $projectRoot = $remote['webdir'] . '/..';
         $collection->taskSsh($worker, $auth)
-            ->remoteDirectory($projectRoot, true)
+            ->remoteDirectory($releaseDir, true)
             ->exec('chmod u+x vendor/bin/robo');
 
         return $collection;
