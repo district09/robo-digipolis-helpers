@@ -920,7 +920,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         $collection->taskSsh($worker, $auth)
             ->remoteDirectory($releaseDir, true)
-            ->exec('chmod u+x vendor/bin/robo');
+            ->exec('chmod u+rx vendor/bin/robo');
 
         return $collection;
     }
