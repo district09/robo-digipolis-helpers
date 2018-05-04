@@ -152,12 +152,24 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
     protected function currentReleaseHasRobo($worker, AbstractAuth $auth, $remote)
     {
-        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $currentProjectRoot = $this->getCurrentProjectRoot($worker, $auth, $remote);
         return $this->taskSsh($worker, $auth)
             ->remoteDirectory($currentProjectRoot, true)
             ->exec('ls vendor/bin/robo | grep robo')
             ->run()
             ->wasSuccessful();
+    }
+
+    public function getCurrentProjectRoot($worker, AbstractAuth $auth, $remote)
+    {
+        $fullOutput = '';
+        $this->taskSsh($worker, $auth)
+            ->remoteDirectory($remote['releasesdir'], true)
+            ->exec('ls -1 | sort -r | head -1', function ($output) use (&$fullOutput) {
+                $fullOutput .= $output;
+            })
+            ->run();
+        return $remote['releasesdir'] . '/' . substr($fullOutput, 0, (strpos($fullOutput, "\n") ?: strlen($fullOutput)));
     }
 
     /**
@@ -331,7 +343,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function preSymlinkTask($worker, AbstractAuth $auth, $remote)
     {
-        $projectRoot = $remote['webdir'] . '/..';
+        $projectRoot = $remote['rootdir'];
         $collection = $this->collectionBuilder();
         $collection->taskSsh($worker, $auth)
             ->remoteDirectory($projectRoot, true)
@@ -644,7 +656,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $opts['data'] = true;
         }
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
-        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $currentProjectRoot = $this->getCurrentProjectRoot($worker, $auth, $remote);
 
         $collection = $this->collectionBuilder();
         $collection->taskSsh($worker, $auth)
@@ -731,7 +743,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $opts['data'] = true;
         }
 
-        $currentProjectRoot = $remote['currentdir'] . '/..';
+        $currentProjectRoot = $this->getCurrentProjectRoot($worker, $auth, $remote);
         $backupDir = $remote['backupsdir'] . '/' . $remote['time'];
 
         $collection = $this->collectionBuilder();
@@ -940,9 +952,8 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function switchPreviousTask($worker, AbstractAuth $auth, $remote)
     {
-        $currentProjectRoot = $remote['currentdir'] . '/..';
         return $this->taskSsh($worker, $auth)
-            ->remoteDirectory($currentProjectRoot, true)
+            ->remoteDirectory($remote['rootdir'], true)
             ->exec(
                 'vendor/bin/robo digipolis:switch-previous '
                 . $remote['releasesdir']
@@ -967,12 +978,11 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function removeFailedRelease($worker, AbstractAuth $auth, $remote, $releaseDirname = null)
     {
-        $currentProjectRoot = $remote['currentdir'] . '/..';
         $releaseDir = is_null($releaseDirname)
             ? $remote['releasesdir'] . '/' . $remote['time']
             : $releaseDirname;
         return $this->taskSsh($worker, $auth)
-            ->remoteDirectory($currentProjectRoot, true)
+            ->remoteDirectory($remote['rootdir'], true)
             ->exec('chown -R ' . $remote['user'] . ':' . $remote['user'] . ' ' . $releaseDir)
             ->exec('chmod -R a+rwx ' . $releaseDir)
             ->exec('rm -rf ' . $releaseDir);
@@ -1016,13 +1026,12 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function clearOpCacheTask($worker, AbstractAuth $auth, $remote)
     {
-        $currentProjectRoot = $remote['currentdir'] . '/..';
         $clearOpcache = 'vendor/bin/robo digipolis:clear-op-cache ' . $remote['opcache']['env'];
         if (isset($remote['opcache']['host'])) {
             $clearOpcache .= ' --host=' . $remote['opcache']['host'];
         }
         return $this->taskSsh($worker, $auth)
-            ->remoteDirectory($currentProjectRoot, true)
+            ->remoteDirectory($remote['rootdir'], true)
             ->exec($clearOpcache);
     }
 
@@ -1041,10 +1050,9 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function cleanDirsTask($worker, AbstractAuth $auth, $remote)
     {
-        $currentProjectRoot = $remote['currentdir'] . '/..';
         $cleandirLimit = isset($remote['cleandir_limit']) ? max(1, $remote['cleandir_limit']) : '';
         return $this->taskSsh($worker, $auth)
-                ->remoteDirectory($currentProjectRoot, true)
+                ->remoteDirectory($remote['rootdir'], true)
                 ->timeout(30)
                 ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'] . (!empty($cleandirLimit) ? ':' . $cleandirLimit : ''))
                 ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir'] . (!empty($cleandirLimit) ? ':' . ($cleandirLimit - 1) : ''));
