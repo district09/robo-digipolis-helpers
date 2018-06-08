@@ -133,7 +133,9 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         // Clear OPcache if present.
         if (isset($remote['opcache']) && (!array_key_exists('clear', $remote['opcache']) || $remote['opcache']['clear'])) {
-            $collection->addTask($this->clearOpCacheTask($worker, $auth, $remote));
+            foreach ($servers as $server) {
+                $collection->addTask($this->clearOpCacheTask($server, $auth, $remote));
+            }
         }
 
         // Clean release and backup dirs on the servers.
