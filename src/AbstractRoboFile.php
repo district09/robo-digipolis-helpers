@@ -106,6 +106,9 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         // Push the package to the servers and create the required symlinks.
         foreach ($servers as $server) {
+            // Remove this release on rollback.
+            $collection->rollback($this->removeFailedRelease($server, $auth, $remote, $releaseDir));
+
             // Push the package.
             $collection->addTask($this->pushPackageTask($server, $auth, $remote, $archive));
 
@@ -117,8 +120,6 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
             // Switch the current symlink to the previous release on rollback.
             $collection->rollback($this->switchPreviousTask($server, $auth, $remote));
-            // Remove this release on rollback.
-            $collection->rollback($this->removeFailedRelease($server, $auth, $remote, $releaseDir));
 
             // Create the symlinks.
             $collection->addTask($this->symlinksTask($server, $auth, $remote));
