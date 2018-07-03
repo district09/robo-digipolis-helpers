@@ -1054,11 +1054,17 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     protected function cleanDirsTask($worker, AbstractAuth $auth, $remote)
     {
         $cleandirLimit = isset($remote['cleandir_limit']) ? max(1, $remote['cleandir_limit']) : '';
-        return $this->taskSsh($worker, $auth)
-                ->remoteDirectory($remote['rootdir'], true)
-                ->timeout(30)
-                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'] . (!empty($cleandirLimit) ? ':' . $cleandirLimit : ''))
-                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir'] . (!empty($cleandirLimit) ? ':' . ($cleandirLimit - 1) : ''));
+
+        $task = $this->taskSsh($worker, $auth)
+            ->remoteDirectory($remote['rootdir'], true)
+            ->timeout(30)
+            ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'] . ($cleandirLimit ? ':' . $cleandirLimit : ''));
+
+        if ($remote['createbackup']) {
+            $task->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir'] . ($cleandirLimit ? ':' . --$cleandirLimit : ''));
+        }
+
+        return $task;
     }
 
     /**
