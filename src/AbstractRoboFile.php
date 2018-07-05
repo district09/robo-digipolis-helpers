@@ -89,7 +89,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $collection->addTask($this->buildTask($archive));
 
         // Create a backup and a rollback task if a site is already installed.
-        if ($this->isSiteInstalled($worker, $auth, $remote) && $this->currentReleaseHasRobo($worker, $auth, $remote)) {
+        if ($remote['createbackup'] && $this->isSiteInstalled($worker, $auth, $remote) && $this->currentReleaseHasRobo($worker, $auth, $remote)) {
             // Create a backup.
             $collection->addTask($this->backupTask($worker, $auth, $remote, $backupOpts));
 
@@ -1054,11 +1054,17 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     protected function cleanDirsTask($worker, AbstractAuth $auth, $remote)
     {
         $cleandirLimit = isset($remote['cleandir_limit']) ? max(1, $remote['cleandir_limit']) : '';
-        return $this->taskSsh($worker, $auth)
-                ->remoteDirectory($remote['rootdir'], true)
-                ->timeout(30)
-                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'] . (!empty($cleandirLimit) ? ':' . $cleandirLimit : ''))
-                ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir'] . (!empty($cleandirLimit) ? ':' . ($cleandirLimit - 1) : ''));
+
+        $task = $this->taskSsh($worker, $auth)
+            ->remoteDirectory($remote['rootdir'], true)
+            ->timeout(30)
+            ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'] . ($cleandirLimit ? ':' . $cleandirLimit : ''));
+
+        if ($remote['createbackup']) {
+            $task->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['backupsdir'] . ($cleandirLimit ? ':' . --$cleandirLimit : ''));
+        }
+
+        return $task;
     }
 
     /**
@@ -1254,6 +1260,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             'user' => $user,
             'private-key' => $keyFile,
             'app' => $app,
+            'createbackup' => true,
             'time' => is_null($timestamp) ? $this->time : $timestamp,
         ];
 
