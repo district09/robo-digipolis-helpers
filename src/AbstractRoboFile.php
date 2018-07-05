@@ -807,7 +807,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         if ($opts['files']) {
             $removeFiles = 'rm -rf';
             if (!$this->fileBackupSubDirs) {
-                $removeFiles .+ ' ./* ./.??*';
+                $removeFiles .= ' ./* ./.??*';
             }
             foreach ($this->fileBackupSubDirs as $subdir) {
                 $removeFiles .= ' ' . $subdir . '/* ' . $subdir . '/.??*';
