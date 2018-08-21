@@ -232,7 +232,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         array_pop($releases);
         if ($releases) {
             // Normalize the paths.
-            $currentDir = realpath($currentSymlink);
+            $currentDir = readlink($currentSymlink);
             $releasesDir = realpath($releasesDir);
             // Get the right folder within the release dir to symlink.
             $relativeRootDir = substr($currentDir, strlen($releasesDir . '/'));
@@ -956,7 +956,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
     protected function switchPreviousTask($worker, AbstractAuth $auth, $remote)
     {
         return $this->taskSsh($worker, $auth)
-            ->remoteDirectory($remote['rootdir'], true)
+            ->remoteDirectory($this->getCurrentProjectRoot($worker, $auth, $remote), true)
             ->exec(
                 'vendor/bin/robo digipolis:switch-previous '
                 . $remote['releasesdir']
