@@ -1321,10 +1321,17 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function realpath($path)
     {
-        if (strpos($path, '~') === 0 && ($homedir = $this->getUserHomeDir())) {
-            $path = $homedir . substr($path, 1);
+        $realpath = $path;
+        if (strpos($realpath, '~') === 0 && ($homedir = $this->getUserHomeDir())) {
+            $realpath = $homedir . substr($realpath, 1);
         }
-        return realpath($path);
+        $realpath = realpath($realpath);
+
+        if ($realpath === false) {
+            throw new \Exception(sprintf('Could not determine real path of %s.', $path));
+        }
+
+        return $realpath;
     }
 
     /**
@@ -1346,6 +1353,6 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             return rtrim($home, '\\/');
         }
 
-        return false;
+        throw new \Exception('Could not determine the current user\'s home directory.');
     }
 }
