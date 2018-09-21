@@ -522,7 +522,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
             $collection->addTask(
                 $this->taskRsync()
-                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `readlink -e ' . $sourceKeyFile . '`"')
+                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i ' . $this->realpath($sourceKeyFile) . '"')
                     ->fromPath($tmpKeyFile)
                     ->toHost($sourceHost)
                     ->toUser($sourceUser)
@@ -544,7 +544,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 $dir .= ($dir !== '' ? '/' : '');
 
                 $rsync = $this->taskRsync()
-                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `readlink -e ' . $tmpKeyFile . '`"')
+                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i ' . $this->realpath($tmpKeyFile) . '"')
                     ->fromPath($sourceRemote['filesdir'] . '/' . $dir)
                     ->toHost($destinationHost)
                     ->toUser($destinationUser)
@@ -1127,7 +1127,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                     $dir .= ($dir !== '' ? '/' : '');
 
                     $rsync = $this->taskRsync()
-                        ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `readlink -e ' . $keyFile . '`"')
+                        ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i ' . $this->realpath($keyFile) . '"')
                         ->fromHost($host)
                         ->fromUser($user)
                         ->fromPath($remote['filesdir'] . '/' . $dir)
@@ -1339,5 +1339,46 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             'pre_restore_remove_files' => 300,
             'clean_dir' => 30,
         ];
+    }
+
+    /**
+     * PHP's realpath can't handle tilde (~), so we have to write a wrapper
+     * for it.
+     */
+    protected function realpath($path)
+    {
+        $realpath = $path;
+        if (strpos($realpath, '~') === 0 && ($homedir = $this->getUserHomeDir())) {
+            $realpath = $homedir . substr($realpath, 1);
+        }
+        $realpath = realpath($realpath);
+
+        if ($realpath === false) {
+            throw new \Exception(sprintf('Could not determine real path of %s.', $path));
+        }
+
+        return $realpath;
+    }
+
+    /**
+     * Get the home directory for the current user.
+     */
+    protected function getUserHomeDir()
+    {
+        // getenv('HOME') isn't set on Windows.
+        $home = getenv('HOME');
+        if (!empty($home)) {
+            // home should never end with a trailing slash.
+            return rtrim($home, '/');
+        }
+        if (!empty($_SERVER['HOMEDRIVE']) && !empty($_SERVER['HOMEPATH'])) {
+            // home on windows
+            $home = $_SERVER['HOMEDRIVE'] . $_SERVER['HOMEPATH'];
+            // If HOMEPATH is a root directory the path can end with a slash.
+            // Make sure that doesn't happen.
+            return rtrim($home, '\\/');
+        }
+
+        throw new \Exception('Could not determine the current user\'s home directory.');
     }
 }
