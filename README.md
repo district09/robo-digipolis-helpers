@@ -32,8 +32,6 @@ By default, we assume a [capistrano-like directory structure](http://capistranor
 ```php
 <?php
 
-namespace DigipolisGent\RoboExample;
-
 use DigipolisGent\Robo\Helpers\AbstractRoboFile;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 
