@@ -1319,6 +1319,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
     protected function getTimeoutSetting($setting = null)
     {
+        $this->readProperties();
         $timeoutSettings = $this->getConfig()->get('timeouts', []) + $this->getDefaultTimeoutSettings();
         if (is_null($setting)) {
             return $timeoutSettings;
