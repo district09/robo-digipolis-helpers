@@ -28,12 +28,14 @@ By default, we assume a [capistrano-like directory structure](http://capistranor
 ## Example implementation
 
 ### RoboFile.php
+
 ```php
 <?php
 
 namespace DigipolisGent\RoboExample;
 
 use DigipolisGent\Robo\Helpers\AbstractRoboFile;
+use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 
 class RoboFile extends AbstractRoboFile
 {
@@ -68,8 +70,13 @@ class RoboFile extends AbstractRoboFile
             ->exec('./update.sh');
     }
 
-    protected function installTask($worker, AbstractAuth $auth, $remote, $extra = [], $force = false)
-    {
+    protected function installTask(
+        $worker,
+        AbstractAuth $auth,
+        $remote,
+        $extra = [],
+        $force = false
+    ) {
         $currentProjectRoot = $remote['rootdir'];
         return $this->taskSsh($server, $auth)
             ->remoteDirectory($currentProjectRoot, true)
@@ -89,27 +96,31 @@ class RoboFile extends AbstractRoboFile
      * @option option1 Description of the first option.
      * @option option2 Description of the second option.
      *
-     * @usage --option1=firstopt --option2=secondopt 192.168.1.2 sshuser /home/myuser/.ssh/id_rsa
+     * @usage --option1=first --option2=2 192.168.1.2 sshuser /home/myuser/.ssh/id_rsa
      */
-    public function myDeployCommand(array $arguments, $opts = ['option1' => 'one', 'option2' => 'two'])
-    {
+    public function myDeployCommand(
+        array $arguments,
+        $opts = ['option1' => 'one', 'option2' => 'two']
+    ) {
         return $this->deployTask($arguments, $opts);
     }
 }
 ```
 
 If you place this in `RoboFile.php` in your project root, you'll be able to run
-`vendor/bin/robo my:deploy-command --option1=firstopt --option2=secondopt 192.168.1.2 sshuser /home/myuser/.ssh/id_rsa`
+`vendor/bin/robo my:deploy-command --option1=1 --option2=2 192.168.1.2 sshuser /home/myuser/.ssh/id_rsa`
 to release your website. The script will automatically detect whether it should
 update your site or do a fresh install, based on your implementation of
 `isSiteInstalled`. Note that this command can only run after the `composer install`
 command completed successfully (without any errors).
 
 ### properties.yml
+
 You need to provide a `properties.yml` file in your project root as well, so
 the script knows what symlinks to create, where to put backups, ...
 
 Below is an example of some sensible defaults:
+
 ```YAML
 remote:
   # The application directory where your capistrano folder structure resides.
