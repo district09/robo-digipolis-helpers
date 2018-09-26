@@ -11,6 +11,8 @@ use Symfony\Component\Finder\Finder;
 
 abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisPropertiesAwareInterface, ConfigAwareInterface
 {
+    const DEFAULT_TIMEOUT = 10;
+
     use \DigipolisGent\Robo\Task\Package\Commands\loadCommands;
     use \DigipolisGent\Robo\Task\General\loadTasks;
     use \DigipolisGent\Robo\Task\General\Common\DigipolisPropertiesAware;
@@ -350,7 +352,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         $collection = $this->collectionBuilder();
         $collection->taskSsh($worker, $auth)
             ->remoteDirectory($projectRoot, true)
-            ->timeout(60);
+            ->timeout($this->getTimeoutSetting('presymlink_mirror_dir'));
         foreach ($remote['symlinks'] as $symlink) {
             list($target, $link) = explode(':', $symlink);
             if ($link === $remote['currentdir']) {
@@ -560,7 +562,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
                 $collection->addTask(
                     $this->taskSsh($sourceHost, $sourceAuth)
-                        ->timeout(1800)
+                        ->timeout($this->getTimeoutSetting('synctask_rsync'))
                         ->exec($rsync)
                 );
             }
@@ -677,7 +679,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 . ' ' . ($this->fileBackupSubDirs ? implode(' ', $this->fileBackupSubDirs) : '*');
             $collection->taskSsh($worker, $auth)
                 ->remoteDirectory($remote['filesdir'])
-                ->timeout(300)
+                ->timeout($this->getTimeoutSetting('backup_files'))
                 ->exec($filesBackup);
         }
 
@@ -687,7 +689,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 . '--destination=' . $backupDir . '/' . $dbBackupFile;
             $collection->taskSsh($worker, $auth)
                 ->remoteDirectory($currentProjectRoot, true)
-                ->timeout(300)
+                ->timeout($this->getTimeoutSetting('backup_database'))
                 ->exec($dbBackup);
         }
         return $collection;
@@ -716,7 +718,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         $collection = $this->collectionBuilder();
         $collection->taskSsh($worker, $auth)
-            ->timeout(300)
+            ->timeout($this->getTimeoutSetting('remove_backup'))
             ->exec('rm -rf ' . $backupDir);
 
         return $collection;
@@ -762,7 +764,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $collection
                 ->taskSsh($worker, $auth)
                     ->remoteDirectory($remote['filesdir'], true)
-                    ->timeout(300)
+                    ->timeout($this->getTimeoutSetting('restore_files_backup'))
                     ->exec('tar -xkzf ' . $backupDir . '/' . $filesBackupFile);
         }
 
@@ -774,7 +776,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             $collection
                 ->taskSsh($worker, $auth)
                     ->remoteDirectory($currentProjectRoot, true)
-                    ->timeout(60)
+                    ->timeout($this->getTimeoutSetting('restore_db_backup'))
                     ->exec($dbRestore);
         }
         return $collection;
@@ -816,7 +818,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             return $this->taskSsh($worker, $auth)
                 ->remoteDirectory($remote['filesdir'], true)
                 // Files dir can be pretty big on large sites.
-                ->timeout(300)
+                ->timeout($this->getTimeoutSetting('pre_restore_remove_files'))
                 ->exec($removeFiles);
         }
 
@@ -1057,7 +1059,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
         $task = $this->taskSsh($worker, $auth)
             ->remoteDirectory($remote['rootdir'], true)
-            ->timeout(30)
+            ->timeout($this->getTimeoutSetting('clean_dir'))
             ->exec('vendor/bin/robo digipolis:clean-dir ' . $remote['releasesdir'] . ($cleandirLimit ? ':' . $cleandirLimit : ''));
 
         if ($remote['createbackup']) {
@@ -1313,6 +1315,40 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             '[time]' => is_null($timestamp) ? $this->time : $timestamp,
         );
         return $this->tokenReplace($this->getConfig()->get('local'), $replacements) + $defaults;
+    }
+
+    /**
+     * Timeouts can be overwritten in properties.yml under the `timeout` key.
+     *
+     * @param string $setting
+     *
+     * @return int
+     */
+    protected function getTimeoutSetting($setting)
+    {
+        $timeoutSettings = $this->getTimeoutSettings();
+        return isset($timeoutSettings[$setting]) ? $timeoutSettings[$setting] : static::DEFAULT_TIMEOUT;
+    }
+
+    protected function getTimeoutSettings()
+    {
+        $this->readProperties();
+        return $this->getConfig()->get('timeouts', []) + $this->getDefaultTimeoutSettings();
+    }
+
+    protected function getDefaultTimeoutSettings()
+    {
+        return [
+            'presymlink_mirror_dir' => 60,
+            'synctask_rsync' => 1800,
+            'backup_files' => 300,
+            'backup_database' => 300,
+            'remove_backup' => 300,
+            'restore_files_backup' => 300,
+            'restore_db_backup' => 60,
+            'pre_restore_remove_files' => 300,
+            'clean_dir' => 30,
+        ];
     }
 
     /**
