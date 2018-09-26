@@ -1317,6 +1317,13 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         return $this->tokenReplace($this->getConfig()->get('local'), $replacements) + $defaults;
     }
 
+    /**
+     * Timeouts can be overwritten in properties.yml under the `timeout` key.
+     *
+     * @param string $setting
+     *
+     * @return int
+     */
     protected function getTimeoutSetting($setting)
     {
         $timeoutSettings = $this->getTimeoutSettings();
