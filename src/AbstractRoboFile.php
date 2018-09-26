@@ -1317,14 +1317,16 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
         return $this->tokenReplace($this->getConfig()->get('local'), $replacements) + $defaults;
     }
 
-    protected function getTimeoutSetting($setting = null)
+    protected function getTimeoutSetting($setting)
+    {
+        $timeoutSettings = $this->getTimeoutSettings();
+        return isset($timeoutSettings[$setting]) ? $timeoutSettings[$setting] : static::DEFAULT_TIMEOUT;
+    }
+
+    protected function getTimeoutSettings()
     {
         $this->readProperties();
-        $timeoutSettings = $this->getConfig()->get('timeouts', []) + $this->getDefaultTimeoutSettings();
-        if (is_null($setting)) {
-            return $timeoutSettings;
-        }
-        return isset($timeoutSettings[$setting]) ? $timeoutSettings[$setting] : static::DEFAULT_TIMEOUT;
+        return $this->getConfig()->get('timeouts', []) + $this->getDefaultTimeoutSettings();
     }
 
     protected function getDefaultTimeoutSettings()
