@@ -102,7 +102,8 @@ If you place this in `RoboFile.php` in your project root, you'll be able to run
 `vendor/bin/robo my:deploy-command --option1=firstopt --option2=secondopt 192.168.1.2 sshuser /home/myuser/.ssh/id_rsa`
 to release your website. The script will automatically detect whether it should
 update your site or do a fresh install, based on your implementation of
-`isSiteInstalled`.
+`isSiteInstalled`. Note that this command can only run after the `composer install`
+command completed successfully (without any errors).
 
 ### properties.yml
 You need to provide a `properties.yml` file in your project root as well, so
