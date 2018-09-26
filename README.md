@@ -149,6 +149,42 @@ remote:
     # Symlink the config file from within our config directory to the config of
     # our current release.
     - '${remote.configdir}/config.php:${remote.rootdir}/config/config.php'
+  # After a successful release, older releases are removed from
+  # ${remote.releasesdir}. This value determines how many past releases we
+  # should keep.
+  cleandir_limit: 5
+# We use the phpseclib library to execute our ssh commands. Their default
+# timeout is 10 seconds. Some tasks take longer than that, so we make the
+# timeouts configurable. Below are the configurable timeouts. The values used in
+# this example are the defaults, meaning that if you don't add them to your
+# properties.yml, these are the values that will be used.
+timeouts:
+  # When we symlink a directory, but it already exists as a directory where we
+  # are going to put the symlink, we mirror that directory to the target before
+  # removing it and replacing it with the symlink. This is the timeout for the
+  # mirroring of such a directory.
+  presymlink_mirror_dir: 60
+  # We provide a task for syncing database and files between
+  # servers/environments. This is the timeout for the rsync command to sync the
+  # files in ${remote.filesdir}.
+  synctask_rsync: 1800
+  # The timeout to create a backup of ${remote.filesdir}.
+  backup_files: 300
+  # The timeout to create a database backup.
+  backup_database: 300
+  # The timeout to remove a backup of both files and database (during sync, a
+  # backup is created, restored on the destination and then removed from the
+  # source).
+  remove_backup: 300
+  # The timeout to restore a files backup.
+  restore_files_backup: 300
+  # The timeout to restore a database backup.
+  restore_db_backup: 60
+  # Before a files backup is restored, the current files are removed. This is
+  # the timeout for removing those files.
+  pre_restore_remove_files: 300
+  # See ${remote.cleandir_limit}. This is the timeout for that operation.
+  clean_dir: 30
 ```
 
 As you can see, you can reference values from within `properties.yml` by using
