@@ -522,7 +522,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
 
             $collection->addTask(
                 $this->taskRsync()
-                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i ' . $this->realpath($sourceKeyFile) . '"')
+                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `vendor/bin/robo digipolis:realpath ' . $sourceKeyFile . '`"')
                     ->fromPath($tmpKeyFile)
                     ->toHost($sourceHost)
                     ->toUser($sourceUser)
@@ -544,7 +544,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 $dir .= ($dir !== '' ? '/' : '');
 
                 $rsync = $this->taskRsync()
-                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i ' . $this->realpath($tmpKeyFile) . '"')
+                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `vendor/bin/robo digipolis:realpath ' . $tmpKeyFile . '`"')
                     ->fromPath($sourceRemote['filesdir'] . '/' . $dir)
                     ->toHost($destinationHost)
                     ->toUser($destinationUser)
@@ -1127,7 +1127,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                     $dir .= ($dir !== '' ? '/' : '');
 
                     $rsync = $this->taskRsync()
-                        ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i ' . $this->realpath($keyFile) . '"')
+                        ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `vendor/bin/robo digipolis:realpath ' . $keyFile . '`"')
                         ->fromHost($host)
                         ->fromUser($user)
                         ->fromPath($remote['filesdir'] . '/' . $dir)
@@ -1349,6 +1349,10 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
             'pre_restore_remove_files' => 300,
             'clean_dir' => 30,
         ];
+    }
+
+    public function digipolisRealpath($path) {
+        return $this->realpath($path);
     }
 
     /**
