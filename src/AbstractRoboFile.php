@@ -544,7 +544,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                 $dir .= ($dir !== '' ? '/' : '');
 
                 $rsync = $this->taskRsync()
-                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `vendor/bin/robo digipolis:realpath ' . $tmpKeyFile . '`"')
+                    ->rawArg('--rsh "ssh -o StrictHostKeyChecking=no -i `cd -P ' . $sourceRemote['currentdir'] . '/.. && vendor/bin/robo digipolis:realpath ' . $tmpKeyFile . '`"')
                     ->fromPath($sourceRemote['filesdir'] . '/' . $dir)
                     ->toHost($destinationHost)
                     ->toUser($destinationUser)
