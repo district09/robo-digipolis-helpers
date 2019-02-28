@@ -2,6 +2,7 @@
 
 namespace DigipolisGent\Robo\Helpers;
 
+use DigipolisGent\CommandBuilder\CommandBuilder;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\KeyFile;
 use DigipolisGent\Robo\Task\General\Common\DigipolisPropertiesAwareInterface;
@@ -330,6 +331,29 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
      */
     protected function postSymlinkTask($worker, AbstractAuth $auth, $remote)
     {
+        if (isset($remote['postsymlink_filechecks']) && $remote['postsymlink_filechecks']) {
+            $projectRoot = $remote['rootdir'];
+            $collection = $this->collectionBuilder();
+            $collection->taskSsh($worker, $auth)
+                ->remoteDirectory($projectRoot, true)
+                ->timeout($this->getTimeoutSetting('postsymlink_filechecks'));
+            foreach ($remote['postsymlink_filechecks'] as $file) {
+                // If this command fails, the collection will fail, which will
+                // trigger a rollback.
+                $builder = CommandBuilder::create('ls')
+                    ->addArgument($file)
+                    ->pipeOutputTo('grep')
+                    ->addArgument($file)
+                    ->onFailure(
+                        CommandBuilder::create('echo')
+                            ->addArgument('[ERROR] ' . $file . ' was not found.')
+                            ->onFinished('exit')
+                            ->addArgument('1')
+                      );
+                $collection->exec((string) $builder);
+            }
+            return $collection;
+        }
         return false;
     }
 
