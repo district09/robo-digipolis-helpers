@@ -349,7 +349,7 @@ abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisProperti
                             ->addArgument('[ERROR] ' . $file . ' was not found.')
                             ->onFinished('exit')
                             ->addArgument('1')
-                      );
+                    );
                 $collection->exec((string) $builder);
             }
             return $collection;
