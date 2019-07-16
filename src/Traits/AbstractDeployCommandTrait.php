@@ -5,15 +5,16 @@ namespace DigipolisGent\Robo\Helpers\Traits;
 use DigipolisGent\CommandBuilder\CommandBuilder;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\KeyFile;
+use DigipolisGent\Robo\Task\Package\Traits\PackageProjectTrait;
 
 trait AbstractDeployCommandTrait
 {
     /**
-     * @see \DigipolisGent\Robo\Helpers\Traits\TraitDependencyCheckerTrait
+     * @see TraitDependencyCheckerTrait
      */
     protected function getAbstractDeployCommandTraitDependencies()
     {
-        return [AbstractCommandTrait::class, RemoteRemoveReleaseTrait::class];
+        return [AbstractCommandTrait::class, RemoteRemoveReleaseTrait::class, PackageProjectTrait::class];
     }
 
     /**

@@ -7,6 +7,7 @@ use Robo\Contract\ConfigAwareInterface;
 
 abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisPropertiesAwareInterface, ConfigAwareInterface
 {
+    use \DigipolisGent\Robo\Task\Package\Traits\PackageProjectTrait;
     use Traits\AbstractCommandTrait;
     use Traits\AbstractDeployCommandTrait;
     use Traits\AbstractSyncCommandTrait;
