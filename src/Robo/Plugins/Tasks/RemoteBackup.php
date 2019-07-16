@@ -63,7 +63,7 @@ abstract class RemoteBackup extends Remote
             ->addArgument($this->backupDir)
             ->onSuccess($this->getCommand());
 
-        return (new Ssh($this->host, $this->auth))
+        return $this->collectionBuilder()->taskSsh($this->host, $this->auth)
             ->remoteDirectory($this->cwd)
             ->timeout($this->timeout)
             ->exec((string) $command)
