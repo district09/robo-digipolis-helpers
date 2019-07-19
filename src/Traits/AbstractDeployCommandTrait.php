@@ -452,7 +452,7 @@ trait AbstractDeployCommandTrait
         $collection->taskRemoteCleanDirs($worker, $auth, $remote['rootdir'], $remote['releasesdir'], ($cleandirLimit ? ($cleandirLimit + 1) : false));
 
         if ($remote['createbackup']) {
-            $collection->taskRemoteCleanDirs($worker, $auth, $remote['rootdir'], $remote['backupsdir'], ($cleandirLimit ? ($cleandirLimit + 1) : false));
+            $collection->taskRemoteCleanDirs($worker, $auth, $remote['rootdir'], $remote['backupsdir'], ($cleandirLimit ? ($cleandirLimit) : false));
         }
 
         return $collection;

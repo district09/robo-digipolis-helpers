@@ -26,6 +26,6 @@ class RemoteCleanDirs extends Remote
     protected function getCommand(): CommandBuilder
     {
         return CommandBuilder::create('vendor/bin/robo digipolis:clean-dir')
-            ->addArgument($this->directory . ($this->limit ? ':' . ($this->limit + 1) : ''));
+            ->addArgument($this->directory . ($this->limit ? ':' . ($this->limit) : ''));
     }
 }
