@@ -153,6 +153,33 @@ remote:
   # ${remote.releasesdir}. This value determines how many past releases we
   # should keep.
   cleandir_limit: 5
+  # We allow overriding settings under the `remote` key in properties.yml by
+  # environment. This means we need to have a reliable way to determine which
+  # environment we're currently on. We use the value of an environment variable
+  # to determine the environment. This variable defaults to HOSTNAME.
+  environment_env_var: HOSTNAME
+  # We use an environment matcher to match the value of the environment variable
+  # mentioned above, to the overrides that need to be applied (see
+  # `environment_overrides` below. This needs to be a PHP callable, and defaults
+  # to `\DigipolisGent\Robo\Helpers\Util\EnvironmentMatcher::regexMatch` to
+  # match the value by using a regular expression.
+  # `\DigipolisGent\Robo\Helpers\Util\EnvironmentMatcher::literalMatch` is also
+  # available to match by a literal value. You can of course also implement your
+  # own.
+  environment_matcher: '\DigipolisGent\Robo\Helpers\Util\EnvironmentMatcher::regexMatch'
+  # Here you can specify the overrides per evironment. This example uses the
+  # default regex matcher.
+  environment_overrides:
+    # Here you can specify your overrides. The keys are the values to match
+    # against the value of the specified environment variable, using the
+    # specified matcher. Since this example uses the regex matcher, we specified
+    # a PCRE regular expression. The values can be anything under the `remote`
+    # key in this specification, and will override said setting for the matching
+    # environment. Only the first match is used (top to bottom).
+    ^qa:
+      cleandir_limit: 3
+    ^staging:
+      cleandir_limit: 2
 # We use the phpseclib library to execute our ssh commands. Their default
 # timeout is 10 seconds. Some tasks take longer than that, so we make the
 # timeouts configurable. Below are the configurable timeouts. The values used in
