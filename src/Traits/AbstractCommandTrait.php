@@ -19,6 +19,11 @@ trait AbstractCommandTrait
     use \Robo\Task\Base\loadTasks;
     use TraitDependencyCheckerTrait;
 
+    public static $defaultEnvironmentOverrideSettings = [
+        'environment_env_var' => 'HOSTNAME',
+        'environment_matcher' => '\\DigipolisGent\\Robo\\Helpers\\Util\\EnvironmentMatcher::regexMatch',
+    ];
+
     /**
      * Stores the request time.
      *
@@ -102,23 +107,12 @@ trait AbstractCommandTrait
      */
     protected function processEnvironmentOverrides($settings)
     {
-        $defaults = [
-            'environment_env_var' => 'HOSTNAME',
-            'environment_matcher' => '\\DigipolisGent\\Robo\\Helpers\\Util\\EnvironmentMatcher::regexMatch',
-        ];
-        $settings += $defaults;
+        $settings += static::$defaultEnvironmentOverrideSettings;
         if (!isset($settings['environment_overrides']) || !$settings['environment_overrides']) {
             return $settings;
         }
 
-        // Get the first server in the list.
-        $server = false;
-        foreach ($settings as $key => $value) {
-            if (preg_match('/^server/', $key) === 1) {
-              $server = $value;
-              continue;
-            }
-        }
+        $server = $this->getFirstServer($settings);
         if (!$server) {
             return $settings;
         }
@@ -144,6 +138,26 @@ trait AbstractCommandTrait
             }
         }
         return $settings;
+    }
+
+    /**
+     * Get the first server entry from the remote settings.
+     *
+     * @param array $settings
+     *
+     * @return string|bool
+     *   First server if found, false otherwise.
+     *
+     * @see self::processEnvironmentOverrides
+     */
+    protected function getFirstServer($settings)
+    {
+        foreach ($settings as $key => $value) {
+            if (preg_match('/^server/', $key) === 1) {
+              return $value;
+            }
+        }
+        return false;
     }
 
 

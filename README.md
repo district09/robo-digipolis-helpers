@@ -170,12 +170,14 @@ remote:
   # Here you can specify the overrides per evironment. This example uses the
   # default regex matcher.
   environment_overrides:
-    # Here you can specify your overrides. The keys are the values to match
-    # against the value of the specified environment variable, using the
-    # specified matcher. Since this example uses the regex matcher, we specified
-    # a PCRE regular expression. The values can be anything under the `remote`
-    # key in this specification, and will override said setting for the matching
-    # environment. Only the first match is used (top to bottom).
+    # List your overrides here.
+    # The keys will be matched against the value of `environment_env_var` via
+    # `environment_matcher`.
+    # The default properties use regexMatch and thus the keys here are PCRE
+    # regexes.
+    # The values per key can be anything set in `remote` and will override that
+    # setting.
+    # Only the first match is used (top to bottom).
     ^qa:
       cleandir_limit: 3
     ^staging:
