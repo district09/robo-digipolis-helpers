@@ -2,8 +2,10 @@
 
 namespace DigipolisGent\Robo\Helpers\Traits;
 
+use Ckr\Util\ArrayMerger;
 use DigipolisGent\CommandBuilder\CommandBuilder;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
+use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\KeyFile;
 use Robo\Task\Remote\Rsync;
 
 trait AbstractCommandTrait
@@ -16,6 +18,11 @@ trait AbstractCommandTrait
     use \DigipolisGent\Robo\Helpers\Traits\loadTasks;
     use \Robo\Task\Base\loadTasks;
     use TraitDependencyCheckerTrait;
+
+    public static $defaultEnvironmentOverrideSettings = [
+        'environment_env_var' => 'HOSTNAME',
+        'environment_matcher' => '\\DigipolisGent\\Robo\\Helpers\\Util\\EnvironmentMatcher::regexMatch',
+    ];
 
     /**
      * Stores the request time.
@@ -86,7 +93,71 @@ trait AbstractCommandTrait
                 $defaults['server-' . $key] = $server;
             }
         }
-        return $this->tokenReplace($this->getConfig()->get('remote'), $replacements) + $defaults;
+        $settings = $this->tokenReplace($this->getConfig()->get('remote'), $replacements) + $defaults;
+        return $this->processEnvironmentOverrides($settings);
+    }
+
+    /**
+     * Process environment-specific overrides.
+     *
+     * @param array $settings
+     * @return array
+     *
+     * @see self::getRemoteSettings
+     */
+    protected function processEnvironmentOverrides($settings)
+    {
+        $settings += static::$defaultEnvironmentOverrideSettings;
+        if (!isset($settings['environment_overrides']) || !$settings['environment_overrides']) {
+            return $settings;
+        }
+
+        $server = $this->getFirstServer($settings);
+        if (!$server) {
+            return $settings;
+        }
+
+        // Parse the env var on the server.
+        $auth = new KeyFile($settings['user'], $settings['private-key']);
+        $fullOutput = '';
+        $this->taskSsh($server, $auth)
+            ->exec(
+                (string) CommandBuilder::create('echo')
+                    ->addRawArgument('$' . $settings['environment_env_var']),
+                function ($output) use (&$fullOutput) {
+                    $fullOutput .= $output;
+                }
+            )
+            ->run();
+        $envVarValue =  substr($fullOutput, 0, (strpos($fullOutput, "\n") ?: strlen($fullOutput)));
+        foreach ($settings['environment_overrides'] as $environmentMatch => $overrides) {
+            if (call_user_func($settings['environment_matcher'], $environmentMatch, $envVarValue)) {
+                $settings = ArrayMerger::doMerge($settings, $overrides);
+                // Break after first match.
+                break;
+            }
+        }
+        return $settings;
+    }
+
+    /**
+     * Get the first server entry from the remote settings.
+     *
+     * @param array $settings
+     *
+     * @return string|bool
+     *   First server if found, false otherwise.
+     *
+     * @see self::processEnvironmentOverrides
+     */
+    protected function getFirstServer($settings)
+    {
+        foreach ($settings as $key => $value) {
+            if (preg_match('/^server/', $key) === 1) {
+                return $value;
+            }
+        }
+        return false;
     }
 
 
