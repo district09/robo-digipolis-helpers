@@ -154,7 +154,7 @@ trait AbstractCommandTrait
     {
         foreach ($settings as $key => $value) {
             if (preg_match('/^server/', $key) === 1) {
-              return $value;
+                return $value;
             }
         }
         return false;
