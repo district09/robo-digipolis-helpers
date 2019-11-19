@@ -8,7 +8,7 @@
         "digipolisgent/robo-digipolis-package": "^0.1",
         "digipolisgent/robo-digipolis-deploy": "^0.1.9",
         "digipolisgent/robo-digipolis-general": "^0.1",
-        "gordalina/cachetool": "^3|^2.1|^1.11",
+        "gordalina/cachetool": "^4|^3",
         "digipolisgent/command-builder": "^1.2.1",
         "roave/better-reflection": "^3.0|^2.0"
     },
