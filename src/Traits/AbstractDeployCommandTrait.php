@@ -429,6 +429,7 @@ trait AbstractDeployCommandTrait
         }
         return $this->taskSsh($worker, $auth)
             ->remoteDirectory($remote['rootdir'], true)
+            ->timeout($this->getTimeoutSetting('clear_op_cache'))
             ->exec((string) $clearOpcache);
     }
 
