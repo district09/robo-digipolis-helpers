@@ -460,6 +460,7 @@ trait AbstractCommandTrait
             'restore_db_backup' => 60,
             'pre_restore_remove_files' => 300,
             'clean_dir' => 30,
+            'clear_op_cache' => 30,
         ];
     }
 
