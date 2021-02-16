@@ -14,7 +14,7 @@ trait AbstractCommandTrait
     use \Consolidation\Config\ConfigAwareTrait;
     use \DigipolisGent\Robo\Task\General\loadTasks;
     use \DigipolisGent\Robo\Task\Deploy\Traits\SshTrait;
-    use \DigipolisGent\Robo\Task\Deploy\Traits\ScpTrait;
+    use \DigipolisGent\Robo\Task\Deploy\Traits\SFTPTrait;
     use \DigipolisGent\Robo\Helpers\Traits\loadTasks;
     use \Robo\Task\Base\loadTasks;
     use TraitDependencyCheckerTrait;

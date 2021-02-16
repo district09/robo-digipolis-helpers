@@ -42,7 +42,7 @@ trait AbstractSyncCommandTrait
 
         $collection = $this->collectionBuilder();
         $collection
-            ->taskScp($worker, $auth);
+            ->taskSFTP($worker, $auth);
 
         // Download files.
         if ($opts['files']) {
@@ -89,7 +89,7 @@ trait AbstractSyncCommandTrait
         $collection
             ->taskSsh($worker, $auth)
                 ->exec((string) CommandBuilder::create('mkdir')->addFlag('p')->addArgument($backupDir))
-            ->taskScp($worker, $auth);
+            ->taskSFTP($worker, $auth);
         if ($opts['files']) {
             $collection->put($backupDir . '/' . $filesBackupFile, $filesBackupFile);
         }
