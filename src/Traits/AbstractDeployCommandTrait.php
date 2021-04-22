@@ -259,7 +259,7 @@ trait AbstractDeployCommandTrait
             ->remoteDirectory($projectRoot, true)
             ->timeout($this->getTimeoutSetting('presymlink_mirror_dir'));
         foreach ($remote['symlinks'] as $symlink) {
-            $preIndividualSymlinkTask = $this->preIndividualSymlinkTask($worker, $auth, $remote, $link);
+            $preIndividualSymlinkTask = $this->preIndividualSymlinkTask($worker, $auth, $remote, $symlink);
             if ($preIndividualSymlinkTask) {
                 $collection->addTask($preIndividualSymlinkTask);
             }
