@@ -280,6 +280,46 @@ trait AbstractDeployCommandTrait
         return $collection;
     }
 
+     /**
+     * Tasks to execute before creating an individual symlink.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     * @param string $symlink
+      *  The symlink in format "target:link".
+     *
+     * @return bool|\Robo\Contract\TaskInterface
+     *   The presymlink task, false if no pre symlink task needs to run.
+     */
+    protected function preIndividualSymlinkTask($worker, AbstractAuth $auth, $remote, $symlink)
+    {
+        $projectRoot = $remote['rootdir'];
+        $collection = $this->collectionBuilder();
+        $collection->taskSsh($worker, $auth)
+            ->remoteDirectory($projectRoot, true)
+            ->timeout($this->getTimeoutSetting('presymlink_mirror_dir'));
+        list($target, $link) = explode(':', $symlink);
+        if ($link === $remote['currentdir']) {
+            return;
+        }
+        // If the link we're going to create is an existing directory,
+        // mirror that directory on the symlink target and then delete it
+        // before creating the symlink
+        $collection->exec(
+            (string) CommandBuilder::create('vendor/bin/robo digipolis:mirror-dir')
+                ->addArgument($link)
+                ->addArgument($target)
+        );
+        $collection->exec(
+            (string) CommandBuilder::create('rm')
+                ->addFlag('rf')
+                ->addArgument($link)
+        );
+    }
 
     /**
      * Switch the current symlink to the previous release on the server.
@@ -322,6 +362,10 @@ trait AbstractDeployCommandTrait
     {
         $collection = $this->collectionBuilder();
         foreach ($remote['symlinks'] as $link) {
+            $preIndividualSymlinkTask = $this->preIndividualSymlinkTask($worker, $auth, $remote, $link);
+            if ($preIndividualSymlinkTask) {
+                $collection->addTask($preIndividualSymlinkTask);
+            }
             list($target, $linkname) = explode(':', $link);
             $collection->taskSsh($worker, $auth)
                 ->exec(
