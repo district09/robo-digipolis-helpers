@@ -259,23 +259,10 @@ trait AbstractDeployCommandTrait
             ->remoteDirectory($projectRoot, true)
             ->timeout($this->getTimeoutSetting('presymlink_mirror_dir'));
         foreach ($remote['symlinks'] as $symlink) {
-            list($target, $link) = explode(':', $symlink);
-            if ($link === $remote['currentdir']) {
-                continue;
+            $preIndividualSymlinkTask = $this->preIndividualSymlinkTask($worker, $auth, $remote, $link);
+            if ($preIndividualSymlinkTask) {
+                $collection->addTask($preIndividualSymlinkTask);
             }
-            // If the link we're going to create is an existing directory,
-            // mirror that directory on the symlink target and then delete it
-            // before creating the symlink
-            $collection->exec(
-                (string) CommandBuilder::create('vendor/bin/robo digipolis:mirror-dir')
-                    ->addArgument($link)
-                    ->addArgument($target)
-            );
-            $collection->exec(
-                (string) CommandBuilder::create('rm')
-                    ->addFlag('rf')
-                    ->addArgument($link)
-            );
         }
         return $collection;
     }
