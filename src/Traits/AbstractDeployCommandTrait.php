@@ -306,6 +306,8 @@ trait AbstractDeployCommandTrait
                 ->addFlag('rf')
                 ->addArgument($link)
         );
+
+        return $collection;
     }
 
     /**
