@@ -93,8 +93,16 @@ trait AbstractCommandTrait
                 $defaults['server-' . $key] = $server;
             }
         }
-        $settings = $this->tokenReplace($this->getConfig()->get('remote'), $replacements) + $defaults;
-        return $this->processEnvironmentOverrides($settings);
+
+        $settings = $this->processEnvironmentOverrides(
+            $this->tokenReplace($this->getConfig()->get('remote'), $replacements) + $defaults
+        );
+
+        // Reverse the symlinks so the `current` symlink is the last one to be
+        // created.
+        $settings['symlinks'] = array_reverse($settings['symlinks'], true);
+
+        return $settings;
     }
 
     /**
