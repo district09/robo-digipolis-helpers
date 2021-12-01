@@ -165,6 +165,10 @@ trait AbstractSyncRemoteCommandTrait
             );
         }
 
+        if ($clearCache = $this->clearCacheTask($destinationHost, $destinationAuth, $destinationRemote)) {
+            $collection->completion($clearCache);
+        }
+
         return $collection;
     }
 
