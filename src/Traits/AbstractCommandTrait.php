@@ -141,8 +141,6 @@ trait AbstractCommandTrait
         foreach ($settings['environment_overrides'] as $environmentMatch => $overrides) {
             if (call_user_func($settings['environment_matcher'], $environmentMatch, $envVarValue)) {
                 $settings = ArrayMerger::doMerge($settings, $overrides);
-                // Break after first match.
-                break;
             }
         }
         return $settings;
