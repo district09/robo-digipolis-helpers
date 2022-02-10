@@ -177,7 +177,7 @@ remote:
     # regexes.
     # The values per key can be anything set in `remote` and will override that
     # setting.
-    # Only the first match is used (top to bottom).
+    # All matches are used (top to bottom).
     ^qa:
       cleandir_limit: 3
     ^staging:
