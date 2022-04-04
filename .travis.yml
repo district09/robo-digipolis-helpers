@@ -1,11 +1,11 @@
+dist: bionic
 env:
   global:
     - CC_TEST_REPORTER_ID=2f97c2ecce1be2d3a4aea4825bfde2709b64378dac708c1437115b63e30fe942
 language: php
 php:
-  - 7.1
-  - 7.2
-  - 7.3
+  - 7.4
+  - 8.1.0
 before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
   - chmod +x ./cc-test-reporter
