@@ -5,6 +5,9 @@ namespace DigipolisGent\Robo\Helpers;
 use DigipolisGent\Robo\Task\General\Common\DigipolisPropertiesAwareInterface;
 use Robo\Contract\ConfigAwareInterface;
 
+// See https://github.com/consolidation/annotated-command/issues/240
+\Consolidation\AnnotatedCommand\AnnotatedCommandFactory::setIgnoreCommandsInTraits(false);
+
 abstract class AbstractRoboFile extends \Robo\Tasks implements DigipolisPropertiesAwareInterface, ConfigAwareInterface
 {
     use \DigipolisGent\Robo\Task\Package\Traits\PackageProjectTrait;
