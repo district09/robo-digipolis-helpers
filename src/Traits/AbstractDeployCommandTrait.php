@@ -72,6 +72,11 @@ trait AbstractDeployCommandTrait
             // Remove this release on rollback.
             $collection->rollback($this->removeFailedRelease($server, $auth, $remote, $releaseDir));
 
+            // Clear opcache (if present) on rollback.
+            if (isset($remote['opcache']) && (!array_key_exists('clear', $remote['opcache']) || $remote['opcache']['clear'])) {
+                $collection->rollback($this->clearOpCacheTask($server, $auth, $remote));
+            }
+
             // Push the package.
             $collection->addTask($this->pushPackageTask($server, $auth, $remote, $archive));
 
