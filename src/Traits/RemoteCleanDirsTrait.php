@@ -2,7 +2,7 @@
 
 namespace DigipolisGent\Robo\Helpers\Traits;
 
-use DigipolisGent\Robo\Helpers\Robo\Plugins\Tasks\RemoteCleanDirs;
+use DigipolisGent\Robo\Helpers\Robo\Plugin\Tasks\RemoteCleanDirs;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 
 

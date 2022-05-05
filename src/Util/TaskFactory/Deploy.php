@@ -1,20 +1,83 @@
 <?php
 
-namespace DigipolisGent\Robo\Helpers\Traits;
+namespace DigipolisGent\Robo\Helpers\Util\TaskFactory;
 
+use Consolidation\AnnotatedCommand\Output\OutputAwareInterface;
 use DigipolisGent\CommandBuilder\CommandBuilder;
+use DigipolisGent\Robo\Helpers\DependencyInjection\AppTaskFactoryAwareInterface;
+use DigipolisGent\Robo\Helpers\DependencyInjection\BackupTaskFactoryAwareInterface;
+use DigipolisGent\Robo\Helpers\DependencyInjection\BuildTaskFactoryAwareInterface;
+use DigipolisGent\Robo\Helpers\DependencyInjection\CacheTaskFactoryAwareInterface;
+use DigipolisGent\Robo\Helpers\DependencyInjection\PropertiesHelperAwareInterface;
+use DigipolisGent\Robo\Helpers\DependencyInjection\RemoteHelperAwareInterface;
+use DigipolisGent\Robo\Helpers\DependencyInjection\Traits\AppTaskFactoryAware;
+use DigipolisGent\Robo\Helpers\DependencyInjection\Traits\BackupTaskFactoryAware;
+use DigipolisGent\Robo\Helpers\DependencyInjection\Traits\BuildTaskFactoryAware;
+use DigipolisGent\Robo\Helpers\DependencyInjection\Traits\CacheTaskFactoryAware;
+use DigipolisGent\Robo\Helpers\DependencyInjection\Traits\PropertiesHelperAware;
+use DigipolisGent\Robo\Helpers\DependencyInjection\Traits\RemoteHelperAware;
+use DigipolisGent\Robo\Helpers\Util\PropertiesHelper;
+use DigipolisGent\Robo\Helpers\Util\RemoteHelper;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\KeyFile;
-use DigipolisGent\Robo\Task\Package\Traits\PackageProjectTrait;
+use League\Container\DefinitionContainerInterface;
+use Robo\Collection\CollectionBuilder;
+use Robo\Common\IO;
+use Robo\Contract\BuilderAwareInterface;
+use Robo\TaskAccessor;
+use Symfony\Component\Console\Input\InputAwareInterface;
 
-trait AbstractDeployCommandTrait
+class Deploy implements
+    AppTaskFactoryAwareInterface,
+    BackupTaskFactoryAwareInterface,
+    BuilderAwareInterface,
+    BuildTaskFactoryAwareInterface,
+    CacheTaskFactoryAwareInterface,
+    PropertiesHelperAwareInterface,
+    RemoteHelperAwareInterface,
+    InputAwareInterface,
+    OutputAwareInterface
 {
-    /**
-     * @see TraitDependencyCheckerTrait
-     */
-    protected function getAbstractDeployCommandTraitDependencies()
+    use TaskAccessor;
+    use \DigipolisGent\Robo\Helpers\Traits\Tasks;
+    use \DigipolisGent\Robo\Task\Deploy\Tasks;
+    use RemoteHelperAware;
+    use BuildTaskFactoryAware;
+    use BackupTaskFactoryAware;
+    use CacheTaskFactoryAware;
+    use PropertiesHelperAware;
+    use AppTaskFactoryAware;
+    use IO;
+
+    public function __construct(
+        AbstractApp $appTaskFactory,
+        Backup $backupTaskFactory,
+        Build $buildTaskFactory,
+        Cache $cacheTaskFactory,
+        PropertiesHelper $propertiesHelper,
+        RemoteHelper $remoteHelper
+    ) {
+        $this->setAppTaskFactory($appTaskFactory);
+        $this->setBackupTaskFactory($backupTaskFactory);
+        $this->setBuildTaskFactory($buildTaskFactory);
+        $this->setCacheTaskFactory($cacheTaskFactory);
+        $this->setPropertiesHelper($propertiesHelper);
+        $this->setRemoteHelper($remoteHelper);
+    }
+
+    public static function create(DefinitionContainerInterface $container)
     {
-        return [AbstractCommandTrait::class, RemoteRemoveReleaseTrait::class, PackageProjectTrait::class];
+        $object = new static(
+            $container->get(AbstractApp::class),
+            $container->get(Backup::class),
+            $container->get(Build::class),
+            $container->get(Cache::class),
+            $container->get(PropertiesHelper::class),
+            $container->get(RemoteHelper::class)
+        );
+        $object->setBuilder(CollectionBuilder::create($container, $object));
+
+        return $object;
     }
 
     /**
@@ -30,7 +93,7 @@ trait AbstractDeployCommandTrait
      * @return \Robo\Contract\TaskInterface
      *   The deploy task.
      */
-    protected function deploy(
+    public function deployTask(
         array $arguments,
         $opts
     ) {
@@ -40,7 +103,7 @@ trait AbstractDeployCommandTrait
         $user = array_pop($arguments);
         $servers = $arguments;
         $worker = is_null($opts['worker']) ? reset($servers) : $opts['worker'];
-        $remote = $this->getRemoteSettings($servers, $user, $privateKeyFile, $opts['app']);
+        $remote = $this->remoteHelper->getRemoteSettings($servers, $user, $privateKeyFile, $opts['app']);
         $releaseDir = $remote['releasesdir'] . '/' . $remote['time'];
         $auth = new KeyFile($user, $privateKeyFile);
         $archive = $remote['time'] . '.tar.gz';
@@ -49,16 +112,16 @@ trait AbstractDeployCommandTrait
         $collection = $this->collectionBuilder();
 
         // Build the archive to deploy.
-        $collection->addTask($this->buildTask($archive));
+        $collection->addTask($this->buildTaskFactory->buildTask($archive));
 
         // Create a backup and a rollback task if a site is already installed.
-        if ($remote['createbackup'] && $this->isSiteInstalled($worker, $auth, $remote) && $this->currentReleaseHasRobo($worker, $auth, $remote)) {
+        if ($remote['createbackup'] && $this->appTaskFactory->isSiteInstalled($worker, $auth, $remote) && $this->remoteHelper->currentReleaseHasRobo($worker, $auth, $remote)) {
             // Create a backup.
-            $collection->addTask($this->backupTask($worker, $auth, $remote, $backupOpts));
+            $collection->addTask($this->backupTaskFactory->backupTask($worker, $auth, $remote, $backupOpts));
 
             // Create a rollback for this backup for when the deploy fails.
             $collection->rollback(
-                $this->restoreBackupTask(
+                $this->backupTaskFactory->restoreBackupTask(
                     $worker,
                     $auth,
                     $remote,
@@ -70,11 +133,11 @@ trait AbstractDeployCommandTrait
         // Push the package to the servers and create the required symlinks.
         foreach ($servers as $server) {
             // Remove this release on rollback.
-            $collection->rollback($this->removeFailedRelease($server, $auth, $remote, $releaseDir));
+            $collection->rollback($this->removeFailedReleaseTask($server, $auth, $remote, $releaseDir));
 
             // Clear opcache (if present) on rollback.
             if (isset($remote['opcache']) && (!array_key_exists('clear', $remote['opcache']) || $remote['opcache']['clear'])) {
-                $collection->rollback($this->clearOpCacheTask($server, $auth, $remote));
+                $collection->rollback($this->cacheTaskFactory->clearOpCacheTask($server, $auth, $remote));
             }
 
             // Push the package.
@@ -103,7 +166,7 @@ trait AbstractDeployCommandTrait
         // Clear OPcache if present.
         if (isset($remote['opcache']) && (!array_key_exists('clear', $remote['opcache']) || $remote['opcache']['clear'])) {
             foreach ($servers as $server) {
-                $collection->addTask($this->clearOpCacheTask($server, $auth, $remote));
+                $collection->addTask($this->cacheTaskFactory->clearOpCacheTask($server, $auth, $remote));
             }
         }
 
@@ -112,134 +175,12 @@ trait AbstractDeployCommandTrait
             $collection->completion($this->cleanDirsTask($server, $auth, $remote));
         }
 
-        $clearCache = $this->clearCacheTask($worker, $auth, $remote);
+        $clearCache = $this->cacheTaskFactory->clearCacheTask($worker, $auth, $remote);
 
         // Clear the site's cache if required.
         if ($clearCache) {
             $collection->completion($clearCache);
         }
-        return $collection;
-    }
-
-    /**
-     * Build a site and package it.
-     *
-     * @param string $archivename
-     *   Name of the archive to create.
-     *
-     * @return \Robo\Contract\TaskInterface
-     *   The deploy task.
-     */
-    protected function buildTask($archivename = null)
-    {
-        $this->readProperties();
-        $archive = is_null($archivename) ? $this->time . '.tar.gz' : $archivename;
-        $collection = $this->collectionBuilder();
-        $collection
-            ->taskPackageProject($archive);
-        return $collection;
-    }
-
-    /**
-     * Check if a site is already installed
-     *
-     * @param string $worker
-     *   The server to install the site on.
-     * @param AbstractAuth $auth
-     *   The ssh authentication to connect to the server.
-     * @param array $remote
-     *   The remote settings for this server.
-     *
-     * @return bool
-     *   Whether or not the site is installed.
-     */
-    abstract protected function isSiteInstalled($worker, AbstractAuth $auth, $remote);
-
-    /**
-     * Check if the current release has robo available.
-     *
-     * @param string $worker
-     *   The server to check the release on.
-     * @param \DigipolisGent\Robo\Helpers\Traits\AbstractAuth $auth
-     *   The ssh authentication to connect to the server.
-     * @param array $remote
-     *   The remote settings for this server.
-     *
-     * @return bool
-     */
-    protected function currentReleaseHasRobo($worker, AbstractAuth $auth, $remote)
-    {
-        $currentProjectRoot = $this->getCurrentProjectRoot($worker, $auth, $remote);
-        return $this->taskSsh($worker, $auth)
-            ->remoteDirectory($currentProjectRoot, true)
-            ->exec(
-                (string) CommandBuilder::create('ls')
-                    ->addArgument('vendor/bin/robo')
-                    ->pipeOutputTo(
-                        CommandBuilder::create('grep')
-                            ->addArgument('robo')
-                    )
-            )
-            ->run()
-            ->wasSuccessful();
-    }
-
-    /**
-     * Remove a failed release from the server.
-     *
-     * @param string $worker
-     *   The server to install the site on.
-     * @param AbstractAuth $auth
-     *   The ssh authentication to connect to the server.
-     * @param array $remote
-     *   The remote settings for this server.
-     * @param string|null $releaseDirname
-     *   The path of the release dir to remove.
-     *
-     * @return \Robo\Contract\TaskInterface
-     *   The remove release task.
-     */
-    protected function removeFailedRelease($worker, AbstractAuth $auth, $remote, $releaseDirname = null)
-    {
-        $releaseDir = is_null($releaseDirname)
-            ? $remote['releasesdir'] . '/' . $remote['time']
-            : $releaseDirname;
-        return $this->taskRemoteRemoveRelease($worker, $auth, null, $releaseDir);
-    }
-
-    /**
-     * Push a package to the server.
-     *
-     * @param string $worker
-     *   The server to install the site on.
-     * @param AbstractAuth $auth
-     *   The ssh authentication to connect to the server.
-     * @param array $remote
-     *   The remote settings for this server.
-     * @param string|null $archivename
-     *   The path to the package to push.
-     *
-     * @return \Robo\Contract\TaskInterface
-     *   The push package task.
-     */
-    protected function pushPackageTask($worker, AbstractAuth $auth, $remote, $archivename = null)
-    {
-        $archive = is_null($archivename)
-            ? $remote['time'] . '.tar.gz'
-            : $archivename;
-        $releaseDir = $remote['releasesdir'] . '/' . $remote['time'];
-        $collection = $this->collectionBuilder();
-        $collection->taskPushPackage($worker, $auth)
-            ->destinationFolder($releaseDir)
-            ->package($archive);
-
-        $collection->taskSsh($worker, $auth)
-            ->remoteDirectory($releaseDir, true)
-            ->exec((string) CommandBuilder::create('chmod')
-                ->addArgument('u+rx')
-                ->addArgument('vendor/bin/robo')
-            );
-
         return $collection;
     }
 
@@ -258,11 +199,7 @@ trait AbstractDeployCommandTrait
      */
     protected function preSymlinkTask($worker, AbstractAuth $auth, $remote)
     {
-        $projectRoot = $remote['rootdir'];
         $collection = $this->collectionBuilder();
-        $collection->taskSsh($worker, $auth)
-            ->remoteDirectory($projectRoot, true)
-            ->timeout($this->getTimeoutSetting('presymlink_mirror_dir'));
         foreach ($remote['symlinks'] as $symlink) {
             $preIndividualSymlinkTask = $this->preIndividualSymlinkTask($worker, $auth, $remote, $symlink);
             if ($preIndividualSymlinkTask) {
@@ -293,7 +230,7 @@ trait AbstractDeployCommandTrait
         $collection = $this->collectionBuilder();
         $collection->taskSsh($worker, $auth)
             ->remoteDirectory($projectRoot, true)
-            ->timeout($this->getTimeoutSetting('presymlink_mirror_dir'));
+            ->timeout($this->remoteHelper->getTimeoutSetting('presymlink_mirror_dir'));
         list($target, $link) = explode(':', $symlink);
         if ($link === $remote['currentdir']) {
             return;
@@ -315,29 +252,7 @@ trait AbstractDeployCommandTrait
         return $collection;
     }
 
-    /**
-     * Switch the current symlink to the previous release on the server.
-     *
-     * @param string $worker
-     *   The server to install the site on.
-     * @param AbstractAuth $auth
-     *   The ssh authentication to connect to the server.
-     * @param array $remote
-     *   The remote settings for this server.
-     *
-     * @return \Robo\Contract\TaskInterface
-     *   The switch previous task.
-     */
-    protected function switchPreviousTask($worker, AbstractAuth $auth, $remote)
-    {
-        return $this->taskRemoteSwitchPrevious(
-            $worker,
-            $auth,
-            $this->getCurrentProjectRoot($worker, $auth, $remote),
-            $remote['releasesdir'],
-            $remote['currentdir']
-        );
-    }
+
 
     /**
      * Create all required symlinks on the server.
@@ -394,7 +309,7 @@ trait AbstractDeployCommandTrait
             $collection = $this->collectionBuilder();
             $collection->taskSsh($worker, $auth)
                 ->remoteDirectory($projectRoot, true)
-                ->timeout($this->getTimeoutSetting('postsymlink_filechecks'));
+                ->timeout($this->remoteHelper->getTimeoutSetting('postsymlink_filechecks'));
             foreach ($remote['postsymlink_filechecks'] as $file) {
                 // If this command fails, the collection will fail, which will
                 // trigger a rollback.
@@ -435,19 +350,99 @@ trait AbstractDeployCommandTrait
     protected function initRemoteTask($worker, AbstractAuth $auth, $remote, $extra = [], $force = false)
     {
         $collection = $this->collectionBuilder();
-        if (!$this->isSiteInstalled($worker, $auth, $remote) || $force) {
+        if (!$this->appTaskFactory->isSiteInstalled($worker, $auth, $remote) || $force) {
             $this->say($force ? 'Forcing site install.' : 'Site status failed.');
             $this->say('Triggering install script.');
 
             $collection->addTask($this->installTask($worker, $auth, $remote, $extra, $force));
             return $collection;
         }
-        $collection->addTask($this->updateTask($worker, $auth, $remote, $extra));
+        $collection->addTask($this->appTaskFactory->updateTask($worker, $auth, $remote, $extra));
         return $collection;
     }
 
     /**
-     * Clear OPcache on the server.
+     * Build a site and package it.
+     *
+     * @param string $archivename
+     *   Name of the archive to create.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The deploy task.
+     */
+    protected function buildTask($archivename = null)
+    {
+        $this->propertiesHelper->readProperties();
+        $archive = is_null($archivename) ? $this->time . '.tar.gz' : $archivename;
+        $collection = $this->collectionBuilder();
+        $collection
+            ->taskPackageProject($archive);
+        return $collection;
+    }
+
+    /**
+     * Remove a failed release from the server.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     * @param string|null $releaseDirname
+     *   The path of the release dir to remove.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The remove release task.
+     */
+    protected function removeFailedReleaseTask($worker, AbstractAuth $auth, $remote, $releaseDirname = null)
+    {
+        $releaseDir = is_null($releaseDirname)
+            ? $remote['releasesdir'] . '/' . $remote['time']
+            : $releaseDirname;
+        return $this->taskRemoteRemoveRelease($worker, $auth, null, $releaseDir);
+    }
+
+
+
+    /**
+     * Push a package to the server.
+     *
+     * @param string $worker
+     *   The server to install the site on.
+     * @param AbstractAuth $auth
+     *   The ssh authentication to connect to the server.
+     * @param array $remote
+     *   The remote settings for this server.
+     * @param string|null $archivename
+     *   The path to the package to push.
+     *
+     * @return \Robo\Contract\TaskInterface
+     *   The push package task.
+     */
+    protected function pushPackageTask($worker, AbstractAuth $auth, $remote, $archivename = null)
+    {
+        $archive = is_null($archivename)
+            ? $remote['time'] . '.tar.gz'
+            : $archivename;
+        $releaseDir = $remote['releasesdir'] . '/' . $remote['time'];
+        $collection = $this->collectionBuilder();
+        $collection->taskPushPackage($worker, $auth)
+            ->destinationFolder($releaseDir)
+            ->package($archive);
+
+        $collection->taskSsh($worker, $auth)
+            ->remoteDirectory($releaseDir, true)
+            ->exec((string) CommandBuilder::create('chmod')
+                ->addArgument('u+rx')
+                ->addArgument('vendor/bin/robo')
+            );
+
+        return $collection;
+    }
+
+    /**
+     * Switch the current symlink to the previous release on the server.
      *
      * @param string $worker
      *   The server to install the site on.
@@ -457,18 +452,17 @@ trait AbstractDeployCommandTrait
      *   The remote settings for this server.
      *
      * @return \Robo\Contract\TaskInterface
-     *   The clear OPcache task.
+     *   The switch previous task.
      */
-    protected function clearOpCacheTask($worker, AbstractAuth $auth, $remote)
+    protected function switchPreviousTask($worker, AbstractAuth $auth, $remote)
     {
-        $clearOpcache = CommandBuilder::create('vendor/bin/robo digipolis:clear-op-cache')->addArgument($remote['opcache']['env']);
-        if (isset($remote['opcache']['host'])) {
-            $clearOpcache->addOption('host', $remote['opcache']['host']);
-        }
-        return $this->taskSsh($worker, $auth)
-            ->remoteDirectory($remote['rootdir'], true)
-            ->timeout($this->getTimeoutSetting('clear_op_cache'))
-            ->exec((string) $clearOpcache);
+        return $this->taskRemoteSwitchPrevious(
+            $worker,
+            $auth,
+            $this->remoteHelper->getCurrentProjectRoot($worker, $auth, $remote),
+            $remote['releasesdir'],
+            $remote['currentdir']
+        );
     }
 
     /**
@@ -497,57 +491,4 @@ trait AbstractDeployCommandTrait
         return $collection;
     }
 
-    /**
-     * Clear cache of the site.
-     *
-     * @param string $worker
-     *   The server to install the site on.
-     * @param AbstractAuth $auth
-     *   The ssh authentication to connect to the server.
-     * @param array $remote
-     *   The remote settings for this server.
-     *
-     * @return bool|\Robo\Contract\TaskInterface
-     *   The clear cache task or false if no clear cache task exists.
-     */
-    protected function clearCacheTask($worker, $auth, $remote)
-    {
-        return false;
-    }
-
-    /**
-     * Install the site in the current folder.
-     *
-     * @param string $worker
-     *   The server to install the site on.
-     * @param AbstractAuth $auth
-     *   The ssh authentication to connect to the server.
-     * @param array $remote
-     *   The remote settings for this server.
-     * @param bool $force
-     *   Whether or not to force the install even when the site is present.
-     *
-     * @return \Robo\Contract\TaskInterface
-     *   The install task.
-     */
-    abstract protected function installTask($worker, AbstractAuth $auth, $remote, $extra = [], $force = false);
-
-    /**
-     * Executes database updates of the site in the current folder.
-     *
-     * Executes database updates of the site in the current folder. Sets
-     * the site in maintenance mode before the update and takes in out of
-     * maintenance mode after.
-     *
-     * @param string $worker
-     *   The server to install the site on.
-     * @param AbstractAuth $auth
-     *   The ssh authentication to connect to the server.
-     * @param array $remote
-     *   The remote settings for this server.
-     *
-     * @return \Robo\Contract\TaskInterface
-     *   The update task.
-     */
-    abstract protected function updateTask($worker, AbstractAuth $auth, $remote);
 }

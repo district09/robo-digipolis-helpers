@@ -5,15 +5,14 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
-        "digipolisgent/robo-digipolis-package": "^0.1",
-        "digipolisgent/robo-digipolis-deploy": "^1.0",
-        "digipolisgent/robo-digipolis-general": "^1.0",
-        "gordalina/cachetool": "^8|^7|^6|^5|^4|^3",
+        "digipolisgent/robo-digipolis-package": "dev-develop",
+        "digipolisgent/robo-digipolis-deploy": "dev-develop",
+        "digipolisgent/robo-digipolis-general": "dev-develop",
         "digipolisgent/command-builder": "^1.2.1",
-        "roave/better-reflection": "^5.0|~4.3.0|^3.0|^2.0"
+        "roave/better-reflection": "^5.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^9.0"
+        "phpunit/phpunit": "^9.5.20"
     },
     "autoload": {
         "psr-4": {
