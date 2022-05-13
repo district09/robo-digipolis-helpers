@@ -5,9 +5,9 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
-        "digipolisgent/robo-digipolis-package": "dev-develop",
-        "digipolisgent/robo-digipolis-deploy": "dev-develop",
-        "digipolisgent/robo-digipolis-general": "dev-develop",
+        "digipolisgent/robo-digipolis-package": "^1.0",
+        "digipolisgent/robo-digipolis-deploy": "^2.0",
+        "digipolisgent/robo-digipolis-general": "^2.0",
         "digipolisgent/command-builder": "^1.2.1",
         "roave/better-reflection": "^5.0"
     },
