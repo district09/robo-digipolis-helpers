@@ -2,7 +2,7 @@
 
 namespace DigipolisGent\Robo\Helpers\Traits;
 
-use DigipolisGent\Robo\Helpers\Robo\Plugins\Tasks\RemoteDatabaseBackup;
+use DigipolisGent\Robo\Helpers\Robo\Plugin\Tasks\RemoteDatabaseBackup;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 
 

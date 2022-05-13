@@ -1,6 +1,6 @@
 <?php
 
-namespace DigipolisGent\Robo\Helpers\Robo\Plugins\Tasks;
+namespace DigipolisGent\Robo\Helpers\Robo\Plugin\Tasks;
 
 use DigipolisGent\CommandBuilder\CommandBuilder;
 use DigipolisGent\Robo\Task\Deploy\Ssh;

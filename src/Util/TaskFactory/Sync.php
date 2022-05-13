@@ -1,19 +1,67 @@
 <?php
 
-namespace DigipolisGent\Robo\Helpers\Traits;
+namespace DigipolisGent\Robo\Helpers\Util\TaskFactory;
 
+use Consolidation\AnnotatedCommand\Events\CustomEventAwareInterface;
+use Consolidation\AnnotatedCommand\Events\CustomEventAwareTrait;
 use DigipolisGent\CommandBuilder\CommandBuilder;
+use DigipolisGent\Robo\Helpers\DependencyInjection\BackupTaskFactoryAwareInterface;
+use DigipolisGent\Robo\Helpers\DependencyInjection\BuildTaskFactoryAwareInterface;
+use DigipolisGent\Robo\Helpers\DependencyInjection\CacheTaskFactoryAwareInterface;
+use DigipolisGent\Robo\Helpers\DependencyInjection\RemoteHelperAwareInterface;
+use DigipolisGent\Robo\Helpers\DependencyInjection\Traits\BackupTaskFactoryAware;
+use DigipolisGent\Robo\Helpers\DependencyInjection\Traits\BuildTaskFactoryAware;
+use DigipolisGent\Robo\Helpers\DependencyInjection\Traits\CacheTaskFactoryAware;
+use DigipolisGent\Robo\Helpers\DependencyInjection\Traits\RemoteHelperAware;
+use DigipolisGent\Robo\Helpers\Util\RemoteHelper;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
 use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\KeyFile;
+use League\Container\DefinitionContainerInterface;
+use Robo\Collection\CollectionBuilder;
+use Robo\Contract\BuilderAwareInterface;
+use Robo\TaskAccessor;
 
-trait AbstractSyncRemoteCommandTrait
+class Sync implements
+    BackupTaskFactoryAwareInterface,
+    BuilderAwareInterface,
+    BuildTaskFactoryAwareInterface,
+    CacheTaskFactoryAwareInterface,
+    RemoteHelperAwareInterface,
+    CustomEventAwareInterface
 {
-    /**
-     * @see \DigipolisGent\Robo\Helpers\Traits\TraitDependencyCheckerTrait
-     */
-    protected function getAbstractSyncRemoteCommandTraitDependencies()
+    use TaskAccessor;
+    use \DigipolisGent\Robo\Helpers\Traits\Tasks;
+    use \DigipolisGent\Robo\Task\Deploy\Tasks;
+    use RemoteHelperAware;
+    use BuildTaskFactoryAware;
+    use BackupTaskFactoryAware;
+    use CacheTaskFactoryAware;
+    use CustomEventAwareTrait;
+    use BackupConfigTrait;
+
+    public function __construct(
+        Backup $backupTaskFactory,
+        Build $buildTaskFactory,
+        Cache $cacheTaskFactory,
+        RemoteHelper $remoteHelper
+    ) {
+        $this->setBackupTaskFactory($backupTaskFactory);
+        $this->setBuildTaskFactory($buildTaskFactory);
+        $this->setCacheTaskFactory($cacheTaskFactory);
+        $this->setRemoteHelper($remoteHelper);
+    }
+
+    public static function create(DefinitionContainerInterface $container)
     {
-        return [AbstractSyncCommandTrait::class];
+        $object = new static(
+            $container->get(Backup::class),
+            $container->get(Build::class),
+            $container->get(Cache::class),
+            $container->get(RemoteHelper::class)
+        );
+        $object->setBuilder(CollectionBuilder::create($container, $object));
+
+        return $object;
     }
 
     /**
@@ -41,7 +89,7 @@ trait AbstractSyncRemoteCommandTrait
      * @return \Robo\Contract\TaskInterface
      *   The sync task.
      */
-    protected function sync(
+    public function syncTask(
         $sourceUser,
         $sourceHost,
         $sourceKeyFile,
@@ -59,7 +107,7 @@ trait AbstractSyncRemoteCommandTrait
 
         $opts['rsync'] = !isset($opts['rsync']) || $opts['rsync'];
 
-        $sourceRemote = $this->getRemoteSettings(
+        $sourceRemote = $this->remoteHelper->getRemoteSettings(
             $sourceHost,
             $sourceUser,
             $sourceKeyFile,
@@ -67,7 +115,7 @@ trait AbstractSyncRemoteCommandTrait
         );
         $sourceAuth = new KeyFile($sourceUser, $sourceKeyFile);
 
-        $destinationRemote = $this->getRemoteSettings(
+        $destinationRemote = $this->remoteHelper->getRemoteSettings(
             $destinationHost,
             $destinationUser,
             $destinationKeyFile,
@@ -81,7 +129,7 @@ trait AbstractSyncRemoteCommandTrait
             // Files are rsync'ed, no need to sync them through backups later.
             $opts['files'] = false;
             $collection->addTask(
-                $this->rsyncAllFiles(
+                $this->rsyncAllFilesTask(
                     $sourceAuth,
                     $sourceHost,
                     $sourceKeyFile,
@@ -97,7 +145,7 @@ trait AbstractSyncRemoteCommandTrait
         if ($opts['data'] || $opts['files']) {
             // Create a backup on the source host.
             $collection->addTask(
-                $this->backupTask(
+                $this->backupTaskFactory->backupTask(
                     $sourceHost,
                     $sourceAuth,
                     $sourceRemote,
@@ -106,7 +154,7 @@ trait AbstractSyncRemoteCommandTrait
             );
             // Download the backup from the source host to the local machine.
             $collection->addTask(
-                $this->downloadBackupTask(
+                $this->backupTaskFactory->downloadBackupTask(
                     $sourceHost,
                     $sourceAuth,
                     $sourceRemote,
@@ -115,7 +163,7 @@ trait AbstractSyncRemoteCommandTrait
             );
             // Remove the backup from the source host.
             $collection->addTask(
-                $this->removeBackupTask(
+                $this->backupTaskFactory->removeBackupTask(
                     $sourceHost,
                     $sourceAuth,
                     $sourceRemote,
@@ -124,7 +172,7 @@ trait AbstractSyncRemoteCommandTrait
             );
             // Upload the backup to the destination host.
             $collection->addTask(
-                $this->uploadBackupTask(
+                $this->backupTaskFactory->uploadBackupTask(
                     $destinationHost,
                     $destinationAuth,
                     $destinationRemote,
@@ -133,7 +181,7 @@ trait AbstractSyncRemoteCommandTrait
             );
             // Restore the backup on the destination host.
             $collection->addTask(
-                $this->restoreBackupTask(
+                $this->backupTaskFactory->restoreBackupTask(
                     $destinationHost,
                     $destinationAuth,
                     $destinationRemote,
@@ -142,7 +190,7 @@ trait AbstractSyncRemoteCommandTrait
             );
             // Remove the backup from the destination host.
             $collection->completion(
-                $this->removeBackupTask(
+                $this->backupTaskFactory->removeBackupTask(
                     $destinationHost,
                     $destinationAuth,
                     $destinationRemote,
@@ -165,7 +213,7 @@ trait AbstractSyncRemoteCommandTrait
             );
         }
 
-        if ($clearCache = $this->clearCacheTask($destinationHost, $destinationAuth, $destinationRemote)) {
+        if ($clearCache = $this->cacheTaskFactory->clearCacheTask($destinationHost, $destinationAuth, $destinationRemote)) {
             $collection->completion($clearCache);
         }
 
@@ -233,7 +281,8 @@ trait AbstractSyncRemoteCommandTrait
             )
         );
 
-        $dirs = ($this->fileBackupSubDirs ? $this->fileBackupSubDirs : ['']);
+        $backupConfig = $this->getBackupConfig();
+        $dirs = ($backupConfig['file_backup_subdirs'] ? $backupConfig['file_backup_subdirs'] : ['']);
 
         foreach ($dirs as $dir) {
             $dir .= ($dir !== '' ? '/' : '');
@@ -349,13 +398,13 @@ trait AbstractSyncRemoteCommandTrait
             ->compress()
             ->checksum()
             ->wholeFile();
-
-        foreach ($this->excludeFromBackup as $exclude) {
+        $backupConfig = $this->getBackupConfig();
+        foreach ($backupConfig['exclude_from_backup'] as $exclude) {
             $rsync->exclude($exclude);
         }
 
         return $this->taskSsh($sourceHost, $sourceAuth)
-            ->timeout($this->getTimeoutSetting('synctask_rsync'))
+            ->timeout($this->remoteHelper->getTimeoutSetting('synctask_rsync'))
             ->exec($rsync);
     }
 }
