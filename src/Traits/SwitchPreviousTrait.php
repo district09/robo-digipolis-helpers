@@ -2,7 +2,7 @@
 
 namespace DigipolisGent\Robo\Helpers\Traits;
 
-use DigipolisGent\Robo\Helpers\Robo\Plugins\Tasks\SwitchPrevious;
+use DigipolisGent\Robo\Helpers\Robo\Plugin\Tasks\SwitchPrevious;
 
 trait SwitchPreviousTrait
 {
