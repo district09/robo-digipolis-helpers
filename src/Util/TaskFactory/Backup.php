@@ -22,6 +22,8 @@ class Backup implements BuilderAwareInterface, RemoteHelperAwareInterface, Custo
     use RemoteHelperAware;
     use CustomEventAwareTrait;
     use BackupConfigTrait;
+    use \DigipolisGent\Robo\Helpers\Traits\RemoteDatabaseBackupTrait;
+    use \DigipolisGent\Robo\Helpers\Traits\RemoteFilesBackupTrait;
 
     public function __construct(RemoteHelper $remoteHelper)
     {
