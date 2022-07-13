@@ -284,7 +284,7 @@ class Backup implements BuilderAwareInterface, RemoteHelperAwareInterface, Custo
      * @return \Robo\Contract\TaskInterface
      *   The upload backup task.
      */
-    protected function uploadBackupTask(
+    public function uploadBackupTask(
         $worker,
         AbstractAuth $auth,
         $remote,
