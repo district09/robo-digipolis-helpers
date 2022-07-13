@@ -30,6 +30,7 @@ class Sync implements
     CustomEventAwareInterface
 {
     use TaskAccessor;
+    use \Robo\Task\Base\Tasks;
     use \DigipolisGent\Robo\Helpers\Traits\Tasks;
     use \DigipolisGent\Robo\Task\Deploy\Tasks;
     use RemoteHelperAware;
