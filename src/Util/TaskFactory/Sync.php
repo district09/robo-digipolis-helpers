@@ -31,6 +31,7 @@ class Sync implements
 {
     use TaskAccessor;
     use \Robo\Task\Base\Tasks;
+    use \Robo\Task\Remote\Tasks;
     use \DigipolisGent\Robo\Helpers\Traits\Tasks;
     use \DigipolisGent\Robo\Task\Deploy\Tasks;
     use RemoteHelperAware;
