@@ -220,7 +220,7 @@ class Sync implements
         return $collection;
     }
 
-    protected function rsyncAllFiles(
+    protected function rsyncAllFilesTask(
         AbstractAuth $sourceAuth,
         $sourceHost,
         $sourceKeyFile,
