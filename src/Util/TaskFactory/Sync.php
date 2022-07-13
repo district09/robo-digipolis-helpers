@@ -201,12 +201,12 @@ class Sync implements
             );
 
             // Finally remove the local backups.
-            $dbBackupFile = $this->backupFileName('.sql.gz', $sourceRemote['time']);
+            $dbBackupFile = $this->backupTaskFactory->backupFileName('.sql.gz', $sourceRemote['time']);
             $removeLocalBackup = CommandBuilder::create('rm')
                 ->addFlag('f')
                 ->addArgument($dbBackupFile);
             if ($opts['files']) {
-                $removeLocalBackup->addArgument($this->backupFileName('.tar.gz', $sourceRemote['time']));
+                $removeLocalBackup->addArgument($this->backupTaskFactory->backupFileName('.tar.gz', $sourceRemote['time']));
             }
 
             $collection->completion(
