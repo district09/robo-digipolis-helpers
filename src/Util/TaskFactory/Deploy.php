@@ -354,7 +354,7 @@ class Deploy implements
             $this->say($force ? 'Forcing site install.' : 'Site status failed.');
             $this->say('Triggering install script.');
 
-            $collection->addTask($this->installTask($worker, $auth, $remote, $extra, $force));
+            $collection->addTask($this->appTaskFactory->installTask($worker, $auth, $remote, $extra, $force));
             return $collection;
         }
         $collection->addTask($this->appTaskFactory->updateTask($worker, $auth, $remote, $extra));
