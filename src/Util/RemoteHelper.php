@@ -260,6 +260,7 @@ class RemoteHelper implements BuilderAwareInterface, ConfigAwareInterface, Prope
                     }
                 )
                 ->run();
+            $this->projectRoots[$key] = $remote['releasesdir'] . '/' . substr($fullOutput, 0, (strpos($fullOutput, "\n") ?: strlen($fullOutput)));
         }
         return $this->projectRoots[$key];
     }
