@@ -184,11 +184,14 @@ class Deploy implements
                 $releases = $this->taskSsh($server, $auth)
                     ->remoteDirectory($remote['releasesdir'])
                     ->exec(
-                        'find . -maxdepth 1 -mindepth 1- type d -printf "%P\n"',
+                        'find . -maxdepth 1 -mindepth 1 -type d -printf "%P\n"',
                         function ($output) use (&$fullOutput) {
                             $fullOutput .= $output;
                         }
                     )->run();
+                if (!$releases->wasSuccessful()) {
+                    $fullOutput = "";
+                }
                 /** @var \SplFileInfo $oldRelease */
                 foreach (explode($fullOutput, "\n") as $oldRelease) {
                     if ($oldRelease === $remote['time']) {
