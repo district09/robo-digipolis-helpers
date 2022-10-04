@@ -182,19 +182,28 @@ class Deploy implements
             if (isset($remote['compress_old_releases']) && $remote['compress_old_releases']) {
                 // The current release (the one we're replacing).
                 $currentRelease = $this->remoteHelper->getCurrentProjectRoot($server, $auth, $remote);
+                // Strip the releases dir from the current release, so the tar
+                // contains relative paths.
+                $relativeCurrentRelease = str_replace($remote['releasesdir'] . '/', '', $currentRelease);
                 $collection->addTask(
                     $this->taskSsh($server, $auth)
                         ->remoteDirectory($remote['releasesdir'])
                         ->exec((string) CommandBuilder::create('tar')
                           ->addFlag('c')
                           ->addFlag('z')
-                          ->addFlag('f', $currentRelease . '.tar.gz')
-                          ->addArgument($currentRelease)
+                          ->addFlag('f', $relativeCurrentRelease . '.tar.gz')
+                          ->addArgument($relativeCurrentRelease)
                           ->onSuccess(
                               CommandBuilder::create('rm')
                                   ->addFlag('r')
                                   ->addFlag('f')
-                                  ->addArgument($currentRelease)
+                                  ->addArgument($relativeCurrentRelease)
+                          )
+                          ->onFailure(
+                              CommandBuilder::create('rm')
+                                  ->addFlag('r')
+                                  ->addFlag('f')
+                                  ->addArgument($relativeCurrentRelease . '.tar.gz')
                           )
                     )
                 );
