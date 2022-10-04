@@ -166,7 +166,7 @@ class Deploy implements
 
         // Clear cache after update or install.
         $clearCache = $this->cacheTaskFactory->clearCacheTask($worker, $auth, $remote);
-        if ($clearcache) {
+        if ($clearCache) {
             $collection->addTask($clearCache);
         }
 
@@ -192,8 +192,9 @@ class Deploy implements
                 if (!$releases->wasSuccessful()) {
                     $fullOutput = "";
                 }
+
                 /** @var \SplFileInfo $oldRelease */
-                foreach (explode($fullOutput, "\n") as $oldRelease) {
+                foreach (array_filter(explode("\n", $fullOutput)) as $oldRelease) {
                     if ($oldRelease === $remote['time']) {
                         continue;
                     }
