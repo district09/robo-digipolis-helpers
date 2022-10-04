@@ -182,12 +182,9 @@ class Deploy implements
             if (isset($remote['compress_old_releases']) && $remote['compress_old_releases']) {
                 $fullOutput = '';
                 $releases = $this->taskSsh($server, $auth)
-                    ->exec((string) CommandBuilder::create('find')
-                        ->addRawArgument('.')
-                        ->addFlag('maxdepth', 1)
-                        ->addFlag('mindepth', 1)
-                        ->addFlag('type', 'd')
-                        ->addFlag('printf', '%P\n'),
+                    ->remoteDirectory($remote['releasesdir'])
+                    ->exec(
+                        'find . -maxdepth 1 -mindepth 1- type d -printf "%P\n"',
                         function ($output) use (&$fullOutput) {
                             $fullOutput .= $output;
                         }
