@@ -26,6 +26,7 @@ use Robo\Common\IO;
 use Robo\Contract\BuilderAwareInterface;
 use Robo\TaskAccessor;
 use Symfony\Component\Console\Input\InputAwareInterface;
+use Symfony\Component\Finder\Finder;
 
 class Deploy implements
     AppTaskFactoryAwareInterface,
@@ -41,6 +42,7 @@ class Deploy implements
     use TaskAccessor;
     use \DigipolisGent\Robo\Helpers\Traits\Tasks;
     use \DigipolisGent\Robo\Task\Deploy\Tasks;
+    use \Robo\Task\Base\Tasks;
     use RemoteHelperAware;
     use BuildTaskFactoryAware;
     use BackupTaskFactoryAware;
@@ -180,6 +182,33 @@ class Deploy implements
         // Clear the site's cache if required.
         if ($clearCache) {
             $collection->completion($clearCache);
+        }
+
+        if (isset($remote['compress_old_releases']) && $remote['compress_old_releases']) {
+            $finder = new Finder();
+            $finder
+                ->directories()
+                ->in($remote['releasesdir'])
+                ->notPath($releaseDir)
+                ->depth(0);
+            /** @var \SplFileInfo $oldRelease */
+            foreach ($finder as $oldRelease) {
+                $collection->completion(
+                    $this->taskExec(
+                        CommandBuilder::create('tar')
+                          ->addFlag('c')
+                          ->addFlag('z')
+                          ->addFlag('f', $oldRelease->getRealPath() . '.tar.gz')
+                          ->addArgument($oldRelease->getRealPath())
+                          ->onSuccess(
+                              CommandBuilder::create('rm')
+                                  ->addFlag('r')
+                                  ->addFlag('f')
+                                  ->addArgument($oldRelease->getRealPath())
+                          )
+                    )
+                );
+            }
         }
         return $collection;
     }
