@@ -153,6 +153,10 @@ remote:
   # ${remote.releasesdir}. This value determines how many past releases we
   # should keep.
   cleandir_limit: 5
+  # To save some space/inodes on your server you can choose to compress the
+  # older releases that are not being removed. This way they are still available
+  # if you need to do a manual rollback, but don't take up as much space/inodes.
+  compress_old_releases: false
   # We allow overriding settings under the `remote` key in properties.yml by
   # environment. This means we need to have a reliable way to determine which
   # environment we're currently on. We use the value of an environment variable

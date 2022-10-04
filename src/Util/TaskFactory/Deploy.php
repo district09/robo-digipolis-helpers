@@ -41,6 +41,7 @@ class Deploy implements
     use TaskAccessor;
     use \DigipolisGent\Robo\Helpers\Traits\Tasks;
     use \DigipolisGent\Robo\Task\Deploy\Tasks;
+    use \Robo\Task\Base\Tasks;
     use RemoteHelperAware;
     use BuildTaskFactoryAware;
     use BackupTaskFactoryAware;
@@ -163,6 +164,12 @@ class Deploy implements
         // Initialize the site (update or install).
         $collection->addTask($this->initRemoteTask($worker, $auth, $remote, $opts, $opts['force-install']));
 
+        // Clear cache after update or install.
+        $clearCache = $this->cacheTaskFactory->clearCacheTask($worker, $auth, $remote);
+        if ($clearCache) {
+            $collection->addTask($clearCache);
+        }
+
         // Clear OPcache if present.
         if (isset($remote['opcache']) && (!array_key_exists('clear', $remote['opcache']) || $remote['opcache']['clear'])) {
             foreach ($servers as $server) {
@@ -170,17 +177,46 @@ class Deploy implements
             }
         }
 
-        // Clean release and backup dirs on the servers.
         foreach ($servers as $server) {
+            // Compress old releases if configured.
+            if (isset($remote['compress_old_releases']) && $remote['compress_old_releases']) {
+                // The current release (the one we're replacing).
+                $currentRelease = $this->remoteHelper->getCurrentProjectRoot($server, $auth, $remote);
+                // Strip the releases dir from the current release, so the tar
+                // contains relative paths.
+                $relativeCurrentRelease = str_replace($remote['releasesdir'] . '/', '', $currentRelease);
+                $collection->addTask(
+                    $this->taskSsh($server, $auth)
+                        ->remoteDirectory($remote['releasesdir'])
+                        ->exec((string) CommandBuilder::create('tar')
+                          ->addFlag('c')
+                          ->addFlag('z')
+                          ->addFlag('f', $relativeCurrentRelease . '.tar.gz')
+                          ->addArgument($relativeCurrentRelease)
+                          ->onSuccess(
+                              CommandBuilder::create('rm')
+                                  ->addFlag('r')
+                                  ->addFlag('f')
+                                  ->addArgument($relativeCurrentRelease)
+                          )
+                          ->onFailure(
+                              CommandBuilder::create('rm')
+                                  ->addFlag('r')
+                                  ->addFlag('f')
+                                  ->addArgument($relativeCurrentRelease . '.tar.gz')
+                          )
+                    )
+                );
+            }
+            // Clean release and backup dirs on the servers.
             $collection->completion($this->cleanDirsTask($server, $auth, $remote));
         }
 
-        $clearCache = $this->cacheTaskFactory->clearCacheTask($worker, $auth, $remote);
-
-        // Clear the site's cache if required.
+        // Clear the site's cache on rollback too.
         if ($clearCache) {
             $collection->completion($clearCache);
         }
+
         return $collection;
     }
 
