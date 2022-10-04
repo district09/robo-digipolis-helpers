@@ -198,19 +198,19 @@ class Deploy implements
                     if ($oldRelease === $remote['time']) {
                         continue;
                     }
-                    $oldReleaseDir = $remote['releasesdir'] . '/' . $oldRelease;
                     $collection->addTask(
                         $this->taskSsh($server, $auth)
+                            ->remoteDirectory($remote['releasesdir'])
                             ->exec((string) CommandBuilder::create('tar')
                               ->addFlag('c')
                               ->addFlag('z')
-                              ->addFlag('f', $oldReleaseDir . '.tar.gz')
-                              ->addArgument($oldReleaseDir)
+                              ->addFlag('f', $oldRelease . '.tar.gz')
+                              ->addArgument($oldRelease)
                               ->onSuccess(
                                   CommandBuilder::create('rm')
                                       ->addFlag('r')
                                       ->addFlag('f')
-                                      ->addArgument($oldReleaseDir)
+                                      ->addArgument($oldRelease)
                               )
                         )
                     );
