@@ -26,7 +26,6 @@ use Robo\Common\IO;
 use Robo\Contract\BuilderAwareInterface;
 use Robo\TaskAccessor;
 use Symfony\Component\Console\Input\InputAwareInterface;
-use Symfony\Component\Finder\Finder;
 
 class Deploy implements
     AppTaskFactoryAwareInterface,
@@ -165,6 +164,12 @@ class Deploy implements
         // Initialize the site (update or install).
         $collection->addTask($this->initRemoteTask($worker, $auth, $remote, $opts, $opts['force-install']));
 
+        // Clear cache after update or install.
+        $clearCache = $this->cacheTaskFactory->clearCacheTask($worker, $auth, $remote);
+        if ($clearcache) {
+            $collection->addTask($clearCache);
+        }
+
         // Clear OPcache if present.
         if (isset($remote['opcache']) && (!array_key_exists('clear', $remote['opcache']) || $remote['opcache']['clear'])) {
             foreach ($servers as $server) {
@@ -172,44 +177,53 @@ class Deploy implements
             }
         }
 
-        // Clean release and backup dirs on the servers.
         foreach ($servers as $server) {
+            // Compress old releases if configured.
+            if (isset($remote['compress_old_releases']) && $remote['compress_old_releases']) {
+                $fullOutput = '';
+                $releases = $this->taskSsh($server, $auth)
+                    ->exec((string) CommandBuilder::create('find')
+                        ->addRawArgument('.')
+                        ->addFlag('maxdepth', 1)
+                        ->addFlag('mindepth', 1)
+                        ->addFlag('type', 'd')
+                        ->addFlag('printf', '%P\n'),
+                        function ($output) use (&$fullOutput) {
+                            $fullOutput .= $output;
+                        }
+                    )->run();
+                /** @var \SplFileInfo $oldRelease */
+                foreach (explode($fullOutput, "\n") as $oldRelease) {
+                    if ($oldRelease === $remote['time']) {
+                        continue;
+                    }
+                    $oldReleaseDir = $remote['releasesdir'] . '/' . $oldRelease;
+                    $collection->addTask(
+                        $this->taskSsh($server, $auth)
+                            ->exec((string) CommandBuilder::create('tar')
+                              ->addFlag('c')
+                              ->addFlag('z')
+                              ->addFlag('f', $oldReleaseDir . '.tar.gz')
+                              ->addArgument($oldReleaseDir)
+                              ->onSuccess(
+                                  CommandBuilder::create('rm')
+                                      ->addFlag('r')
+                                      ->addFlag('f')
+                                      ->addArgument($oldReleaseDir)
+                              )
+                        )
+                    );
+                }
+            }
+            // Clean release and backup dirs on the servers.
             $collection->completion($this->cleanDirsTask($server, $auth, $remote));
         }
 
-        $clearCache = $this->cacheTaskFactory->clearCacheTask($worker, $auth, $remote);
-
-        // Clear the site's cache if required.
+        // Clear the site's cache on rollback too.
         if ($clearCache) {
             $collection->completion($clearCache);
         }
 
-        if (isset($remote['compress_old_releases']) && $remote['compress_old_releases']) {
-            $finder = new Finder();
-            $finder
-                ->directories()
-                ->in($remote['releasesdir'])
-                ->notPath($releaseDir)
-                ->depth(0);
-            /** @var \SplFileInfo $oldRelease */
-            foreach ($finder as $oldRelease) {
-                $collection->completion(
-                    $this->taskExec(
-                        CommandBuilder::create('tar')
-                          ->addFlag('c')
-                          ->addFlag('z')
-                          ->addFlag('f', $oldRelease->getRealPath() . '.tar.gz')
-                          ->addArgument($oldRelease->getRealPath())
-                          ->onSuccess(
-                              CommandBuilder::create('rm')
-                                  ->addFlag('r')
-                                  ->addFlag('f')
-                                  ->addArgument($oldRelease->getRealPath())
-                          )
-                    )
-                );
-            }
-        }
         return $collection;
     }
 
