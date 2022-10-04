@@ -180,41 +180,24 @@ class Deploy implements
         foreach ($servers as $server) {
             // Compress old releases if configured.
             if (isset($remote['compress_old_releases']) && $remote['compress_old_releases']) {
-                $fullOutput = '';
-                $releases = $this->taskSsh($server, $auth)
-                    ->remoteDirectory($remote['releasesdir'])
-                    ->exec(
-                        'find . -maxdepth 1 -mindepth 1 -type d -printf "%P\n"',
-                        function ($output) use (&$fullOutput) {
-                            $fullOutput .= $output;
-                        }
-                    )->run();
-                if (!$releases->wasSuccessful()) {
-                    $fullOutput = "";
-                }
-
-                /** @var \SplFileInfo $oldRelease */
-                foreach (array_filter(explode("\n", $fullOutput)) as $oldRelease) {
-                    if ($oldRelease === $remote['time']) {
-                        continue;
-                    }
-                    $collection->addTask(
-                        $this->taskSsh($server, $auth)
-                            ->remoteDirectory($remote['releasesdir'])
-                            ->exec((string) CommandBuilder::create('tar')
-                              ->addFlag('c')
-                              ->addFlag('z')
-                              ->addFlag('f', $oldRelease . '.tar.gz')
-                              ->addArgument($oldRelease)
-                              ->onSuccess(
-                                  CommandBuilder::create('rm')
-                                      ->addFlag('r')
-                                      ->addFlag('f')
-                                      ->addArgument($oldRelease)
-                              )
-                        )
-                    );
-                }
+                // The current release (the one we're replacing).
+                $currentRelease = $this->remoteHelper->getCurrentProjectRoot($server, $auth, $remote);
+                $collection->addTask(
+                    $this->taskSsh($server, $auth)
+                        ->remoteDirectory($remote['releasesdir'])
+                        ->exec((string) CommandBuilder::create('tar')
+                          ->addFlag('c')
+                          ->addFlag('z')
+                          ->addFlag('f', $currentRelease . '.tar.gz')
+                          ->addArgument($currentRelease)
+                          ->onSuccess(
+                              CommandBuilder::create('rm')
+                                  ->addFlag('r')
+                                  ->addFlag('f')
+                                  ->addArgument($currentRelease)
+                          )
+                    )
+                );
             }
             // Clean release and backup dirs on the servers.
             $collection->completion($this->cleanDirsTask($server, $auth, $remote));

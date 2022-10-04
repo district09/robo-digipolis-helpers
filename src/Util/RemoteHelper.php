@@ -35,6 +35,8 @@ class RemoteHelper implements BuilderAwareInterface, ConfigAwareInterface, Prope
 
     protected $time;
 
+    protected $projectRoots = [];
+
     public function __construct(int $time, ConfigInterface $config, PropertiesHelper $propertiesHelper)
     {
         $this->time = $time;
@@ -237,26 +239,29 @@ class RemoteHelper implements BuilderAwareInterface, ConfigAwareInterface, Prope
 
     public function getCurrentProjectRoot($worker, AbstractAuth $auth, $remote)
     {
-        $fullOutput = '';
-        $this->taskSsh($worker, $auth)
-            ->remoteDirectory($remote['releasesdir'], true)
-            ->exec(
-                (string) CommandBuilder::create('ls')
-                    ->addFlag('1')
-                    ->pipeOutputTo(
-                        CommandBuilder::create('sort')
-                            ->addFlag('r')
-                            ->pipeOutputTo(
-                                CommandBuilder::create('head')
-                                    ->addFlag('1')
-                            )
-                    ),
-                function ($output) use (&$fullOutput) {
-                    $fullOutput .= $output;
-                }
-            )
-            ->run();
-        return $remote['releasesdir'] . '/' . substr($fullOutput, 0, (strpos($fullOutput, "\n") ?: strlen($fullOutput)));
+        $key = $worker . ':' . $auth->getUser() . ':' . $remote['releasesdir'];
+        if (!array_key_exists($key, $this->projectRoots)) {
+            $fullOutput = '';
+            $this->taskSsh($worker, $auth)
+                ->remoteDirectory($remote['releasesdir'], true)
+                ->exec(
+                    (string) CommandBuilder::create('ls')
+                        ->addFlag('1')
+                        ->pipeOutputTo(
+                            CommandBuilder::create('sort')
+                                ->addFlag('r')
+                                ->pipeOutputTo(
+                                    CommandBuilder::create('head')
+                                        ->addFlag('1')
+                                )
+                        ),
+                    function ($output) use (&$fullOutput) {
+                        $fullOutput .= $output;
+                    }
+                )
+                ->run();
+        }
+        return $this->projectRoots[$key];
     }
 
     /**
