@@ -189,23 +189,23 @@ class Deploy implements
                     $this->taskSsh($server, $auth)
                         ->remoteDirectory($remote['releasesdir'])
                         ->exec((string) CommandBuilder::create('tar')
-                          ->addFlag('c')
-                          ->addFlag('z')
-                          ->addFlag('f', $relativeCurrentRelease . '.tar.gz')
-                          ->addArgument($relativeCurrentRelease)
-                          ->onSuccess(
-                              CommandBuilder::create('rm')
-                                  ->addFlag('r')
-                                  ->addFlag('f')
-                                  ->addArgument($relativeCurrentRelease)
-                          )
-                          ->onFailure(
-                              CommandBuilder::create('rm')
-                                  ->addFlag('r')
-                                  ->addFlag('f')
-                                  ->addArgument($relativeCurrentRelease . '.tar.gz')
-                          )
-                    )
+                            ->addFlag('c')
+                            ->addFlag('z')
+                            ->addFlag('f', $relativeCurrentRelease . '.tar.gz')
+                            ->addArgument($relativeCurrentRelease)
+                            ->onSuccess(
+                                CommandBuilder::create('rm')
+                                    ->addFlag('r')
+                                    ->addFlag('f')
+                                    ->addArgument($relativeCurrentRelease)
+                            )
+                            ->onFailure(
+                                CommandBuilder::create('rm')
+                                    ->addFlag('r')
+                                    ->addFlag('f')
+                                    ->addArgument($relativeCurrentRelease . '.tar.gz')
+                            )
+                        )->timeout($this->remoteHelper->getTimeoutSetting('compress_old_release'))
                 );
             }
             // Clean release and backup dirs on the servers.
