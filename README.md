@@ -8,16 +8,23 @@
 [![Build Status](https://travis-ci.org/digipolisgent/robo-digipolis-helpers.svg?branch=develop)](https://travis-ci.org/digipolisgent/robo-digipolis-helpers)
 [![Maintainability](https://api.codeclimate.com/v1/badges/1c4c5693cb7945f5e5e9/maintainability)](https://codeclimate.com/github/digipolisgent/robo-digipolis-helpers/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/1c4c5693cb7945f5e5e9/test_coverage)](https://codeclimate.com/github/digipolisgent/robo-digipolis-helpers/test_coverage)
-[![PHP 7 ready](https://php7ready.timesplinter.ch/digipolisgent/robo-digipolis-helpers/develop/badge.svg)](https://travis-ci.org/digipolisgent/robo-digipolis-helpers)
 
 
-Used by digipolis, abstract robo file to help with the deploy flow.
+Used by digipolis, generic commands/skeleton do execute deploys and syncs between environments.
 
 
-By default, we assume a [capistrano-like directory structure](http://capistranorb.com/documentation/getting-started/structure/):
+## Getting started
+
+We make a couple of assumptions, most of which can be overwritten. See
+[default.properties.yml](src/default.properties.yml) for all default values, and
+[the properties.yml documentation](#propertiesyml) for all available
+configuration options.
+
+By default, we assume a [capistrano-like directory structure](http://capistranorb.com/documentation/getting-started/structure/)
+on your servers:
 ```
-├── current -> releases/20150120114500/
-├── releases
+├── ~/apps/[app]/current -> ~/apps/[app]/releases/20150120114500/
+├── ~/apps/[app]/releases
 │   ├── 20150080072500
 │   ├── 20150090083000
 │   ├── 20150100093500
@@ -25,92 +32,25 @@ By default, we assume a [capistrano-like directory structure](http://capistranor
 │   └── 20150120114500
 ```
 
-## Example implementation
-
-### RoboFile.php
-
-```php
-<?php
-
-use DigipolisGent\Robo\Helpers\AbstractRoboFile;
-use DigipolisGent\Robo\Task\Deploy\Ssh\Auth\AbstractAuth;
-
-class RoboFile extends AbstractRoboFile
-{
-    public function digipolisValidateCode()
-    {
-        $collection = $this->collectionBuilder();
-        $collection->addTask($this->taskExec('phpcs --standard=PSR2 ./src'));
-        return $collection;
-    }
-
-    /**
-     * Detects whether this site is installed or not. This method is used to
-     * determine whether we should run `updateTask` (if this returns `true`) or
-     * `installTask` (if this returns `false`).
-     */
-    protected function isSiteInstalled($worker, AbstractAuth $auth, $remote)
-    {
-        $currentProjectRoot = $this->getCurrentProjectRoot($worker, $auth, $remote);
-        $migrateStatus = '';
-        return $this->taskSsh($worker, $auth)
-            ->remoteDirectory($currentProjectRoot, true)
-            ->exec('ls -al | grep index.php')
-            ->run()
-            ->wasSuccessful();
-    }
-
-    protected function updateTask($worker, AbstractAuth $auth, $remote)
-    {
-        $currentProjectRoot = $remote['rootdir'];
-        return $this->taskSsh($server, $auth)
-            ->remoteDirectory($currentProjectRoot, true)
-            ->exec('./update.sh');
-    }
-
-    protected function installTask(
-        $worker,
-        AbstractAuth $auth,
-        $remote,
-        $extra = [],
-        $force = false
-    ) {
-        $currentProjectRoot = $remote['rootdir'];
-        return $this->taskSsh($server, $auth)
-            ->remoteDirectory($currentProjectRoot, true)
-            ->exec('./install.sh');
-    }
-
-    /**
-     * Build a my site and push it to the server(s).
-     *
-     * @param array $arguments
-     *   Variable amount of arguments. The last argument is the path to the
-     *   the private key file (ssh), the penultimate is the ssh user. All
-     *   arguments before that are server IP's to deploy to.
-     * @param array $opts
-     *   The options for this command.
-     *
-     * @option option1 Description of the first option.
-     * @option option2 Description of the second option.
-     *
-     * @usage --option1=first --option2=2 192.168.1.2 sshuser /home/myuser/.ssh/id_rsa
-     */
-    public function myDeployCommand(
-        array $arguments,
-        $opts = ['option1' => 'one', 'option2' => 'two']
-    ) {
-        return $this->deployTask($arguments, $opts);
-    }
-}
-```
-
-If you place this in `RoboFile.php` in your project root, you'll be able to run
-`vendor/bin/robo my:deploy-command --option1=1 --option2=2 192.168.1.2 sshuser /home/myuser/.ssh/id_rsa`
-to release your website. The script will automatically detect whether it should
-update your site or do a fresh install, based on your implementation of
-`isSiteInstalled`. Note that this command can only run after the `composer install`
-command completed successfully (without any errors).
+This package provides a couple of commands. You can use `vendor/bin/robo list`
+and `vendor/bin/robo help [command]` to find out what they do. Most importantly
+these commands follow a "skeleton", in which each step of the command fires an
+event, and the event listeners return an
+[EventHandlerWithPriority](src/EventHandler/EventHandlerWithPriority). The
+default event listeners provided by this package are in the
+[DigipolisHelpersDefaultHooksCommands](src/Robo/Plugin/Commands/DigipolisHelpersDefaultHooksCommands)
+class. Each method of that class is an event listener, and returns an event
+handler. The default handlers provided by this package can be found in
+[src/EventHandler/DefaultHandler](src/EventHandler/DefaultHandler). If you want
+to overwrite or alter the behavior of a certain step in the command, all you
+have to do is
+[create an event listener by using the on-event hook](https://github.com/consolidation/annotated-command#on-event-hook)
+for the right event, and let it return your custom handler. Handlers are
+executed in order of priority (lower numbers executed first), the priority of
+default handlers is 999. If your handler calls `$event->stopPropagation()` in
+its `handle` method, handlers that come after it, won't get executed. For
+further information, see the
+[list of available events](#list-of-available-events);
 
 ### properties.yml
 
@@ -122,7 +62,7 @@ Below is an example of some sensible defaults:
 ```YAML
 remote:
   # The application directory where your capistrano folder structure resides.
-  appdir: '/home/[user]'
+  appdir: '/home/[user]/apps/[app]'
   # The releases directory where to deploy new releases to.
   releasesdir: '${remote.appdir}/releases'
   # The root directory of a new release.
@@ -215,7 +155,7 @@ timeouts:
   restore_db_backup: 60
   # Before a files backup is restored, the current files are removed. This is
   # the timeout for removing those files.
-  pre_restore_remove_files: 300
+  pre_restore: 300
   # See ${remote.cleandir_limit}. This is the timeout for that operation.
   clean_dir: 30
 ```
@@ -225,7 +165,451 @@ following notation: `${path.to.property}`. There are also other tokens
 available:
 
 ```
-[user]    The ssh user we used to connect to the server.
-[time]    New releases are put in a folder with the current timestamp as folder
-          name. This is that timestamp.
+[user]          The ssh user we used to connect to the server.
+[private-key]   The path to the private key that was used to connect to the
+                server.
+[time]          New releases are put in a folder with the current timestamp as
+                folder name. This is that timestamp.
+[app]           The name of the app that is being deployed.
 ```
+
+### List of available events
+
+Event arguments can be retrieved with `$event->getArgument($argumentName);`
+
+#### digipolis:backup-remote
+
+The handler for this event should return a task that creates a backup on a
+host, based on options that are passed.
+
+*Default handler*: [BackupRemoteHandler](src/EventHandler/DefaultHandler/BackupRemoteHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app of which we're going to create a backup.
+  - options: Options for the backup. An array with keys:
+    - files (bool): Whether or not to create a backup of the files.
+    - data (bool): Whether or not to create a backup of the database.
+  - fileBackupConfig: Configuration for the file backup. An array with keys:
+    - exclude_from_backup: Files and/or directories to exclude from the backup.
+    - file_backup_subdirs: The subdirectories of the files directory that need
+      to be backed up.
+  - timeouts: SSH timeouts for relevant tasks. An array with keys:
+    - backup_files: Timeout in seconds for the files backup.
+    - backup_database: Timeout in second for the database backup.
+
+### digipolis:build-task
+
+The handler for this event should return a task that creates a release archive
+of the current codebase to upload to an environment.
+
+*Default handler*: [BuildTaskHandler](src/EventHandler/DefaultHandler/BuildTaskHandler.php)<br/>
+*Event arguments*:
+  - archiveName: The name of the archive that should be created.
+
+### digipolis:clean-dirs
+
+The handler for this event should return a task that cleans the releases
+directory by removing the older releases.
+
+*Default handler*: [CleanDirsHandler](src/EventHandler/DefaultHandler/CleanDirsHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app of which we're going to clean the releases
+    directory.
+
+### digipolis:clear-cache
+
+The handler for this event should return a task that clears the cache on the
+remote host.
+
+*Default handler*: [ClearCacheHandler](src/EventHandler/DefaultHandler/ClearCacheHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app of which we're going to clear the cache.
+
+### digipolis:clear-remote-opcache
+
+The handler for this event should return a task that clears the opcache on the
+remote host.
+
+*Default handler*: [ClearRemoteOpcacheHandler](src/EventHandler/DefaultHandler/ClearRemoteOpcacheHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app of which we're going to clear the opcache.
+  - timeouts: SSH timeouts for relevant tasks. An array with keys:
+    - clear_op_cache: Timeout in seconds for clearing the opcache.
+
+### digipolis:compress-old-release
+
+The handler for this event should return a task that compresses old releases on
+the host for the given app.
+
+*Default handler*: [CompressOldReleaseHandler](src/EventHandler/DefaultHandler/CompressOldReleaseHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app of which we're going to compress the old
+    releases.
+  - releaseToCompress: The path to the release directory that should be
+    compressed.
+  - timeouts: SSH timeouts for relevant tasks. An array with keys:
+    - compress_old_release: Timeout in seconds for compressing the release.
+
+### digipolis:current-project-root
+
+The handler for this event should return the path to the current project root
+for the given app on the given host. This means the actual path, not a task that
+will return it when executed.
+
+*Default handler*: [CurrentProjectRootHandler](src/EventHandler/DefaultHandler/CurrentProjectRootHandler.php)<br/>
+*Event arguments*:
+  - host: The host on which to get the project root.
+  - user: The SSH user to connect to the host.
+  - privateKeyFile: The path to the private key to use to connect to the host.
+  - remoteSettings: The remote settings for the given host and app as parsed
+    from `properties.yml`.
+
+### digipolis:download-backup
+
+The handler for this event should return a task that downloads a backup of an
+app from a host.
+
+*Default handler*: [DownloadBackupHandler](src/EventHandler/DefaultHandler/DownloadBackupHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app of which we're going to download a backup.
+  - options: Options for the backup. An array with keys:
+    - files (bool): Whether or not a backup of the files was created.
+    - data (bool): Whether or not a backup of the database was created.
+
+### digipolis:install
+
+The handler for this event should return a task that executes the install script
+on the host.
+
+*Default handler*: [InstallHandler](src/EventHandler/DefaultHandler/InstallHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app we're going to install.
+  - options: Options passed from the command to the install task.
+  - force: Boolean indicating whether or not to force the install, even if there
+    already is an installation.
+
+### digipolis:is-site-installed
+
+The handler for this event should return a boolean indicating whether or not
+there already is an active installation of the app on the host. This means the
+actual boolean, not a task that will return it when executed. This helps us to
+determine whether the install or the update script should be ran when deploying
+the app.
+
+*Default handler*: [IsSiteInstalledHandler](src/EventHandler/DefaultHandler/IsSiteInstalledHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app we're checking.
+
+### digipolis:get-local-settings
+
+The handler for this event should return the settings for the local installation
+of the app as parsed from `properties.yml`.
+
+*Default handler*: [LocalSettingsHandler](src/EventHandler/DefaultHandler/LocalSettingsHandler.php)<br/>
+*Event arguments*:
+  - app: The name of the app.
+  - timestamp: The current timestamp (sometimes used as token in paths).
+
+#### digipolis:mirror-dir
+
+The handler for this event should return a task that mirrors everything (files,
+symlink, subdirectories, ...) from one directory to another.
+
+*Default Handler*: [MirrorDirHandler](src/EventHandler/DefaultHandler/MirrorDirHandler.php)<br/>
+*Event arguments*:
+  - dir: The directory to mirror.
+  - destination: The destination path to mirror the directory to.
+
+### digipolis:post-symlink
+
+The handler for this event should return a task that will be executed after
+creating the symlinks (as parsed from `properties.yml`) on the remote host.
+
+*Default Handler*: [PostSymlinkHandler](src/EventHandler/DefaultHandler/PostSymlinkHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - timeouts: SSH timeouts for relevant tasks. An array with keys:
+    - post_symlink: Timeout in seconds for the post symlink tasks.
+
+### digipolis:pre-local-sync-files
+
+The handler for this event should return a task that should be executed before
+syncing files from a remote installation to your local installation.
+
+*Default Handler*: [PreLocalSyncFilesHandler](src/EventHandler/DefaultHandler/PreLocalSyncFilesHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - localSettings: the settings for the local installation of the app as parsed
+    from `properties.yml`.
+
+### digipolis:pre-restore-backup-remote
+
+The handler for this event should return a task that should be executed before
+restoring a backup on a host.
+
+*Default Handler*: [PreRestoreBackupRemoteHandler](src/EventHandler/DefaultHandler/PreRestoreBackupRemoteHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - fileBackupConfig: Configuration for the file backup. An array with keys:
+    - exclude_from_backup: Files and/or directories to exclude from the backup.
+    - file_backup_subdirs: The subdirectories of the files directory that need
+      to be backed up.
+  - options: Options for the backup. An array with keys:
+    - files (bool): Whether or not a backup of the files was created.
+    - data (bool): Whether or not a backup of the database was created.
+  - timeouts: SSH timeouts for relevant tasks. An array with keys:
+    - pre_restore: Timeout in seconds for the pre restore task.
+
+### digipolis:pre-symlink
+
+The handler for this event should return a task that should be executed before
+the symlinks on the remote host are created.
+
+*Default Handler*: [PreSymlinkHandler](src/EventHandler/DefaultHandler/PreSymlinkHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - timeouts: SSH timeouts for relevant tasks. An array with keys:
+    - pre_symlink: Timeout in seconds for the pre symlink task.
+
+### digipolis:push-package
+
+The handler for this event should return a task that pushes a release archive to
+a host.
+
+*Default Handler*: [PushPackageHandler](src/EventHandler/DefaultHandler/PushPackageHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - archiveName: The name of the archive that should be pushed.
+
+### digipolis:realpath
+
+The handler for this event should return the `realpath` of the given path. This
+means the actual path, not a task that will return it when executed. The default
+handler supports replacing `~` (tilde) with the user's homedir.
+
+*Default handler*: [RealpathHandler](src/EventHandler/DefaultHandler/RealpathHandler.php)<br/>
+*Event arguments*:
+  - path: The path to get the real path for.
+
+### digipolis:get-remote-settings
+
+The handler for this event should return the settings for the remote
+installation of the app as parsed from `properties.yml`. This means the actual
+settings, not a task that will return it when executed.
+
+*Default handler*: [RemoteSettingsHandler](src/EventHandler/DefaultHandler/RemoteSettingsHandler.php)<br/>
+*Event arguments*:
+  - servers: An array of servers (can be one, or multiple for loadbalanced
+  setups) where the app resides.
+  - user: The SSH user to connect to the servers.
+  - privateKeyFile: The path to the private key to use to connect to the
+    servers.
+  - app: The name of the app.
+  - timestamp: The current timestamp (sometimes used as token in paths).
+
+### digipolis:remote-switch-previous
+
+The handler for this event should return a task that will switch the `current`
+symlink to the previous release (mostly used on rollback of a failed release).
+
+*Default Handler*: [RemoteSwitchPreviousHandler](src/EventHandler/DefaultHandler/RemoteSwitchPreviousHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+
+### digipolis:remote-symlink
+
+The handler for this event should return a task that will create the symlinks as
+defined in `properties.yml`.
+
+*Default Handler*: [RemoteSymlinkPreviousHandler](src/EventHandler/DefaultHandler/RemoteSymlinkPreviousHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+
+### digipolis:remove-backup-remote
+
+The handler for this event should return a task that removes a backup from the
+host.
+
+*Default Handler*: [RemoveBackupRemoteHandler](src/EventHandler/DefaultHandler/RemoveBackupRemoteHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - options: Options for the backup. An array with keys:
+    - files (bool): Whether or not a backup of the files was created.
+    - data (bool): Whether or not a backup of the database was created.
+  - timeouts: SSH timeouts for relevant tasks. An array with keys:
+    - remove_backup: Timeout in seconds for the pre symlink task.
+
+### digipolis:remove-failed-release
+
+The handler for this event should return a task that removes a failed release
+from the host.
+
+*Default Handler*: [RemoveFailedReleaseHandler](src/EventHandler/DefaultHandler/RemoveFailedReleaseHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - releaseDir: The release directory to remove.
+
+### digipolis:remove-local-backup
+
+The handler for this event should return a task that removes a backup from your
+local machine.
+
+*Default Handler*: [RemoveLocalBackupHandler](src/EventHandler/DefaultHandler/RemoveLocalBackupHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - options: Options for the backup. An array with keys:
+    - files (bool): Whether or not a backup of the files was created.
+    - data (bool): Whether or not a backup of the database was created.
+  - fileBackupConfig: Configuration for the file backup. An array with keys:
+    - exclude_from_backup: Files and/or directories to exclude from the backup.
+    - file_backup_subdirs: The subdirectories of the files directory that need
+      to be backed up.
+
+### digipolis:restore-backup-db-local
+
+The handler for this event should return a task that restores a database backup
+on your local machine.
+
+*Default Handler*: [RestoreBackupDbLocalHandler](src/EventHandler/DefaultHandler/RestoreBackupDbLocalHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - localSettings: the settings for the local installation of the app as parsed
+    from `properties.yml`.
+
+### digipolis:restore-backup-files-local
+
+The handler for this event should return a task that restores a files backup on
+your local machine.
+
+*Default Handler*: [RestoreBackupFilesLocalHandler](src/EventHandler/DefaultHandler/RestoreBackupFilesLocalHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - localSettings: the settings for the local installation of the app as parsed
+    from `properties.yml`.
+
+### digipolis:restore-backup-remote
+
+The handler for this event should return a task that restores a backup on a
+host.
+
+*Default Handler*: [RestoreBackupRemoteHandler](src/EventHandler/DefaultHandler/RestoreBackupRemoteHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - options: Options for the backup. An array with keys:
+    - files (bool): Whether or not to create a backup of the files.
+    - data (bool): Whether or not to create a backup of the database.
+  - fileBackupConfig: Configuration for the file backup. An array with keys:
+    - exclude_from_backup: Files and/or directories to exclude from the backup.
+    - file_backup_subdirs: The subdirectories of the files directory that need
+      to be backed up.
+  - timeouts: SSH timeouts for relevant tasks. An array with keys:
+    - restore_files_backup: Timeout in seconds for the files backup.
+    - restore_db_backup: Timeout in second for the database backup.
+
+### digipolis:rsync-files-between-hosts
+
+The handler for this event should return a task that rsyncs files between two
+hosts.
+
+*Default Handler*: [RsyncFilesBetweenHostsHandler](src/EventHandler/DefaultHandler/RsyncFilesBetweenHostsHandler.php)<br/>
+*Event arguments*:
+  - sourceRemoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object
+    with data relevant to the source host and app.
+  - destinationRemoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php)
+    object with data relevant to the destination host and app.
+  - fileBackupConfig: Configuration for the file backup. An array with keys:
+    - exclude_from_backup: Files and/or directories to exclude from the backup.
+    - file_backup_subdirs: The subdirectories of the files directory that need
+      to be backed up.
+  - timeouts: SSH timeouts for relevant tasks. An array with keys:
+    - synctask_rsync: Timeout in seconds for the rsync.
+
+### digipolis:rsync-files-to-local
+
+The handler for this event should return a task that rsyncs files to your local
+machine.
+
+*Default Handler*: [RsyncFilesToLocalHandler](src/EventHandler/DefaultHandler/RsyncFilesToLocalHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - localSettings: the settings for the local installation of the app as parsed
+    from `properties.yml`.
+  - directory: The subdirectory under the `$remoteSettings['filesdir']` that
+    should be synced.
+  - - fileBackupConfig: Configuration for the file backup. An array with keys:
+    - exclude_from_backup: Files and/or directories to exclude from the backup.
+    - file_backup_subdirs: The subdirectories of the files directory that need
+      to be backed up.
+
+### digipolis:switch-previous
+
+The handler for this event should return a task that will switch the `current`
+symlink to the previous release (mostly used on rollback of a failed release).
+The difference with the (digipolis:remote-switch-previous)[#digipolis-remote-switch-previous]
+event is that this will be executed directly on the host, and thus doesn't need
+an ssh connection, while the (digipolis:remote-switch-previous)[#digipolis-remote-switch-previous]
+will be executed from your deployment server, or your local machine, and thus
+will need an ssh connection to the host.
+
+*Default Handler*: [SwitchPreviousHandler](src/EventHandler/DefaultHandler/SwitchPreviousHandler.php)<br/>
+*Event arguments*:
+  - releasesDir: The directory containing all your releases.
+  - currentSymlink: The path to your `current` symlink.
+
+### digipolis:timeout-setting
+
+The handler for this event should return the the timeout setting of the given
+type in seconds. This means the actual setting, not a task that will return it
+when executed.
+
+*Default handler*: [TimeoutSettingHandler](src/EventHandler/DefaultHandler/TimeoutSettingHandler.php)<br/>
+*Event arguments*:
+  - type: The type of timeout setting to get. See timeout event arguments for
+    the other events.
+
+### digipolis:update
+
+The handler for this event should return a task that executes the update script
+on the host.
+
+*Default handler*: [UpdateHandler](src/EventHandler/DefaultHandler/UpdateHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app we're going to update.
+  - options: Options passed from the command to the update task.
+  - force: Boolean indicating whether or not to force the install, even if there
+    already is an installation.
+
+### digipolis:upload-backup
+
+The handler for this event should return a task that uploads a backup of an
+app to a host.
+
+*Default handler*: [UploadBackupHandler](src/EventHandler/DefaultHandler/UploadBackupHandler.php)<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app of which we're going to download a backup.
+  - options: Options for the backup. An array with keys:
+    - files (bool): Whether or not a backup of the files was created.
+    - data (bool): Whether or not a backup of the database was created.
