@@ -20,7 +20,7 @@ trait RemoteFilesBackupTrait
      * @param string $cwd
      *   The working directory to execute the commands in.
      *
-     * @return \DigipolisGent\Robo\Helpers\Tasks\RemoteFilesBackup
+     * @return \DigipolisGent\Robo\Helpers\Robo\Plugin\Tasks\RemoteFilesBackup
      */
     protected function taskRemoteFilesBackup($host, AbstractAuth $auth, $backupDir, $cwd)
     {
