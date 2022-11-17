@@ -13,6 +13,8 @@ trait DigipolisHelpersCommandUtilities
     protected $remoteSettingsCache = [];
     protected $localSettingsCache = [];
 
+    use \DigipolisGent\Robo\Task\Deploy\Tasks;
+
     /**
      * Get the settings from the 'remote' config key, with the tokens replaced.
      *
