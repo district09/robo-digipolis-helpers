@@ -7,7 +7,7 @@ remote:
   configdir: '${remote.appdir}/config'
   filesdir: '${remote.appdir}/files'
   backupsdir: '${remote.appdir}/backups'
-  createbackup: false
+  createbackup: true
   symlinks:
     - '${remote.webdir}:${remote.currentdir}'
   opcache:

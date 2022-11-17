@@ -15,6 +15,10 @@ Used by digipolis, generic commands/skeleton do execute deploys and syncs betwee
 
 ## Getting started
 
+To let this package know about your database configuration, please read
+[the robo-digipolis-deploy package's documentation]
+(https://github.com/district09/robo-digipolis-deploy#use-events-for-default-configuration).
+
 We make a couple of assumptions, most of which can be overwritten. See
 [default.properties.yml](src/default.properties.yml) for all default values, and
 [the properties.yml documentation](#propertiesyml) for all available
@@ -80,6 +84,9 @@ remote:
   # should get symlinked to since the uploaded files are shared across releases.
   # See `symlinks` below.
   filesdir: '${remote.appdir}/files'
+  # Whether or not to create a backup (and corresponding restore task on
+  # rollback during deploy.
+  createbackup: true
   # The folder where to store backups that are created before running updates.
   backupsdir: '${remote.appdir}/backups'
   # The symlinks to create when deploying, in format target:link
@@ -566,9 +573,9 @@ machine.
 
 The handler for this event should return a task that will switch the `current`
 symlink to the previous release (mostly used on rollback of a failed release).
-The difference with the (digipolis:remote-switch-previous)[#digipolis-remote-switch-previous]
+The difference with the (digipolis:remote-switch-previous)[#digipolisremote-switch-previous]
 event is that this will be executed directly on the host, and thus doesn't need
-an ssh connection, while the (digipolis:remote-switch-previous)[#digipolis-remote-switch-previous]
+an ssh connection, while the (digipolis:remote-switch-previous)[#digipolisremote-switch-previous]
 will be executed from your deployment server, or your local machine, and thus
 will need an ssh connection to the host.
 
