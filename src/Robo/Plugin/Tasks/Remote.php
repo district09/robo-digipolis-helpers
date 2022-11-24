@@ -10,6 +10,7 @@ use Robo\Task\BaseTask;
 abstract class Remote extends BaseTask implements BuilderAwareInterface
 {
     use \Robo\Common\BuilderAwareTrait;
+
     /**
      * The SSH host.
      *
