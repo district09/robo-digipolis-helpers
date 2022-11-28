@@ -15,9 +15,9 @@ class TimeHelper
     protected $time;
 
     /**
-     * Private constructor for singleton pattern.
+     * Protected constructor for singleton pattern.
      */
-    private function __construct()
+    protected function __construct()
     {
         $this->time = time();
     }
@@ -32,6 +32,7 @@ class TimeHelper
         if (!static::$instance) {
             static::$instance = new static();
         }
+
         return static::$instance;
     }
 
