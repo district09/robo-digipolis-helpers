@@ -22,7 +22,7 @@ class RemoveFailedReleaseHandler extends AbstractTaskEventHandler
         /** @var RemoteConfig $remoteConfig */
         $remoteConfig = $event->getArgument('remoteConfig');
         $remoteSettings = $remoteConfig->getRemoteSettings();
-        $auth = new KeyFile($remoteConfig->getHost(), $remoteConfig->getPrivateKeyFile());
+        $auth = new KeyFile($remoteConfig->getUser(), $remoteConfig->getPrivateKeyFile());
         $releaseDir = $event->hasArgument('releaseDir')
             ? $event->getArgument('releaseDir')
             : $remoteSettings['releasesdir'] . '/' . $remoteSettings['time'];
