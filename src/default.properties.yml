@@ -1,3 +1,4 @@
+_priority: 100
 remote:
   appdir: '/home/[user]/apps/[app]'
   releasesdir: '${remote.appdir}/releases'
