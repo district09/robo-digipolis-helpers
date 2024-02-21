@@ -9,7 +9,6 @@
         "digipolisgent/robo-digipolis-deploy": "^2.0",
         "digipolisgent/robo-digipolis-general": "^2.0",
         "digipolisgent/command-builder": "^1.2.1",
-        "roave/better-reflection": "^5.0",
         "symfony/event-dispatcher": "^4.4|^5.4|^6.0"
     },
     "require-dev": {
