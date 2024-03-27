@@ -19,6 +19,7 @@ class IsSiteInstalledHandler extends AbstractTaskEventHandler
      */
     public function handle(GenericEvent $event)
     {
+        $event->stopPropagation();
         if (!is_null($this->siteInstalled)) {
             return $this->siteInstalled;
         }
