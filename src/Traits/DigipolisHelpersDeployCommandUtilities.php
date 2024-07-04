@@ -70,8 +70,9 @@ trait DigipolisHelpersDeployCommandUtilities
             $collection->addTask($this->backupRemoteTask($workerRemoteConfig, $backupOpts));
 
             // Create a rollback for this backup for when the deploy fails.
-            $collection->rollback($this->preRestoreBackupRemoteTask($workerRemoteConfig, $backupOpts));
+            // Rollback tasks are executed in reverse order.
             $collection->rollback($this->restoreBackupRemoteTask($workerRemoteConfig, $backupOpts));
+            $collection->rollback($this->preRestoreBackupRemoteTask($workerRemoteConfig, $backupOpts));
         }
 
         // Push the package to the servers and create the required symlinks.
