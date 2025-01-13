@@ -7,7 +7,7 @@
     "require": {
         "digipolisgent/robo-digipolis-package": "^1.0",
         "digipolisgent/robo-digipolis-deploy": "^2.0",
-        "digipolisgent/robo-digipolis-general": "^2.0",
+        "digipolisgent/robo-digipolis-general": "^2.0 || ^3.0",
         "digipolisgent/command-builder": "^1.2.1",
         "symfony/event-dispatcher": "^4.4|^5.4|^6.0"
     },
