@@ -16,8 +16,7 @@ Used by digipolis, generic commands/skeleton do execute deploys and syncs betwee
 ## Getting started
 
 To let this package know about your database configuration, please read
-[the robo-digipolis-deploy package's documentation]
-(https://github.com/district09/robo-digipolis-deploy#use-events-for-default-configuration).
+[the robo-digipolis-deploy package's documentation](https://github.com/district09/robo-digipolis-deploy#use-events-for-default-configuration).
 
 We make a couple of assumptions, most of which can be overwritten. See
 [default.properties.yml](src/default.properties.yml) for all default values, and
@@ -532,6 +531,23 @@ host.
   - timeouts: SSH timeouts for relevant tasks. An array with keys:
     - restore_files_backup: Timeout in seconds for the files backup.
     - restore_db_backup: Timeout in second for the database backup.
+
+### digipolis:post-sync-remote
+
+The handler for this event should return a task that is ran after the
+synchronisation command has ran.
+
+*Default Handler*: none<br/>
+*Event arguments*:
+  - remoteConfig: The [RemoteConfig](src/Util/RemoteConfig.php) object with data
+    relevant to the host and app.
+  - options: Options for the backup. An array with keys:
+    - files (bool): Whether or not to create a backup of the files.
+    - data (bool): Whether or not to create a backup of the database.
+  - fileBackupConfig: Configuration for the file backup. An array with keys:
+    - exclude_from_backup: Files and/or directories to exclude from the backup.
+    - file_backup_subdirs: The subdirectories of the files directory that need
+      to be backed up.
 
 ### digipolis:rsync-files-between-hosts
 
