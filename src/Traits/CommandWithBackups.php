@@ -85,28 +85,6 @@ trait CommandWithBackups
     }
 
     /**
-     * Get the task that will run after syncing remotes.
-     *
-     * @param RemoteConfig $remoteConfig
-     *   RemoteConfig object populated with data relevant to the host.
-     * @param array $opts
-     *   Extra options passed to the sync command.
-     *
-     * @return \Robo\Contract\TaskInterface
-     */
-    protected function postSyncRemoteTask(RemoteConfig $remoteConfig, $opts)
-    {
-        return $this->handleTaskEvent(
-            'digipolis:post-sync-remote',
-            [
-                'remoteConfig' => $remoteConfig,
-                'fileBackupConfig' => $this->getFileBackupConfig(),
-                'options' => $opts,
-            ]
-        );
-    }
-
-    /**
      * Get the task that will download a backup from a host.
      *
      * @param RemoteConfig $remoteConfig
