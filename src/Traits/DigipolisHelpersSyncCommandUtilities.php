@@ -107,6 +107,10 @@ trait DigipolisHelpersSyncCommandUtilities
             $collection->addTask(
                 $this->restoreBackupRemoteTask($destinationRemoteConfig, $opts)
             );
+            // Execute post sync tasks.
+            $collection->addTask(
+                $this->postSyncRemoteTask($destinationRemoteConfig, $opts)
+            );
             // Remove the backup from the destination host.
             $collection->completion(
                 $this->removeBackupRemoteTask($destinationRemoteConfig, $opts)
@@ -166,6 +170,28 @@ trait DigipolisHelpersSyncCommandUtilities
                 'remoteConfig' => $remoteConfig,
                 'fileBackupConfig' => $this->getFileBackupConfig(),
                 'options' => $options,
+            ]
+        );
+    }
+
+    /**
+     * Get the task that will run after syncing remotes.
+     *
+     * @param RemoteConfig $remoteConfig
+     *   RemoteConfig object populated with data relevant to the host.
+     * @param array $opts
+     *   Extra options passed to the sync command.
+     *
+     * @return \Robo\Contract\TaskInterface
+     */
+    protected function postSyncRemoteTask(RemoteConfig $remoteConfig, $opts)
+    {
+        return $this->handleTaskEvent(
+            'digipolis:post-sync-remote',
+            [
+                'remoteConfig' => $remoteConfig,
+                'fileBackupConfig' => $this->getFileBackupConfig(),
+                'options' => $opts,
             ]
         );
     }
